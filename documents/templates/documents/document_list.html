@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Documents</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { 
+            color: #333; 
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .filters { 
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .filter-group { 
+            margin: 15px 0;
+            display: inline-block;
+            margin-right: 20px;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        select, .btn {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .btn { 
+            background: #007bff; 
+            color: white; 
+            text-decoration: none; 
+            border: none;
+            cursor: pointer;
+            display: inline-block;
+            margin-top: 23px;
+        }
+        .btn:hover { 
+            background: #0056b3; 
+            transform: translateY(-1px);
+        }
+        .btn-clear {
+            background: #6c757d;
+        }
+        .btn-clear:hover {
+            background: #545b62;
+        }
+        
+        /* Grid Layout */
+        .documents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+        
+        .document-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border-left: 4px solid #007bff;
+            display: flex;
+            flex-direction: column;
+            height: fit-content;
+        }
+        
+        .document-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .document-card.restricted {
+            border-left-color: #ffc107;
+            background: linear-gradient(135deg, #fffaf0 0%, #ffffff 100%);
+        }
+        
+        .document-header {
+            margin-bottom: 15px;
+        }
+        
+        .document-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 10px 0;
+            line-height: 1.4;
+        }
+        
+        .document-meta {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .document-meta strong {
+            color: #333;
+        }
+        
+        .document-badges {
+            margin: 10px 0;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #e9ecef;
+            color: #495057;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .badge-restricted {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-quarter {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .badge-period {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .document-actions {
+            margin-top: auto;
+            text-align: center;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .btn-download {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-download:hover {
+            background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+        }
+        
+        .no-docs { 
+            text-align: center;
+            color: #666; 
+            font-style: italic;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 10px;
+            grid-column: 1 / -1;
+        }
+        
+        .pagination {
+            text-align: center;
+            margin: 40px 0;
+            grid-column: 1 / -1;
+        }
+        
+        .pagination .btn {
+            margin: 0 5px;
+        }
+        
+        .current-page {
+            margin: 0 15px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .back-link a {
+            color: #6c757d;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link a:hover {
+            background: #f8f9fa;
+            color: #495057;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .documents-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .filters {
+                padding: 15px;
+            }
+            
+            .filter-group {
+                display: block;
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+            
+            .btn {
+                margin-top: 0;
+            }
+        }
+        
+        /* Loading animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .document-card {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 Document Library</h1>
+        
+        <!-- Filters -->
+        <div class="filters">
+            <h3 style="margin-top: 0; color: #333;">Filter Documents</h3>
+            <form method="get">
+                <div class="filter-group">
+                    <label>📅 Audit Period</label>
+                    <select name="audit_period">
+                        <option value="">All Periods</option>
+                        {% for period in audit_periods %}
+                            <option value="{{ period }}" {% if request.GET.audit_period == period %}selected{% endif %}>
+                                {{ period }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>📊 Quarter</label>
+                    <select name="quarter">
+                        <option value="">All Quarters</option>
+                        {% for value, label in quarters %}
+                            <option value="{{ value }}" {% if request.GET.quarter == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn">🔍 Apply Filters</button>
+                <a href="?" class="btn btn-clear">🔄 Clear</a>
+            </form>
+        </div>
+
+        <!-- Documents Grid -->
+        <div class="documents-grid">
+            {% if documents %}
+                {% for document in documents %}
+                    <div class="document-card {% if document.restricted %}restricted{% endif %}">
+                        <div class="document-header">
+                            <h3 class="document-title">{{ document.title }}</h3>
+                            
+                            <div class="document-badges">
+                                <span class="badge badge-period">{{ document.audit_period.fiscal_year }}</span>
+                                <span class="badge badge-quarter">{{ document.get_quarter_display }}</span>
+                                {% if document.restricted %}
+                                    <span class="badge badge-restricted">🔒 Restricted</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="document-meta">
+                            <p><strong>👤 Uploaded by:</strong> {{ document.uploaded_by|default:"Unknown" }}</p>
+                            <p><strong>📅 Upload date:</strong> {{ document.created_at|date:"M d, Y" }}</p>
+                            {% if document.restricted %}
+                                <p><strong>🔐 Access:</strong> Limited to authorized users</p>
+                            {% else %}
+                                <p><strong>🔓 Access:</strong> Available to all users</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="document-actions">
+                            <a href="{% url 'documents:document-download' document.pk %}" class="btn-download" download>
+                                📥 Download PDF
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-docs">
+                    <h3>📭 No Documents Found</h3>
+                    <p>There are no documents matching your current filters.</p>
+                    {% if request.GET.audit_period or request.GET.quarter %}
+                        <p>Try changing your filter criteria or <a href="?" style="color: #007bff;">clear all filters</a>.</p>
+                    {% else %}
+                        <p>Check back later or contact the administrator if you're expecting to see documents here.</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated and documents %}
+            <div class="pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn">← Previous</a>
+                {% endif %}
+                
+                <span class="current-page">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="btn">Next →</a>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <div class="back-link">
+            <a href="/admin/">← Back to Admin Panel</a>
+        </div>
+    </div>
+
+    <script>
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add loading state to buttons
+            const buttons = document.querySelectorAll('.btn-download');
+            buttons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    if (!this.classList.contains('loading')) {
+                        this.classList.add('loading');
+                        this.innerHTML = '⏳ Downloading...';
+                        
+                        // Reset after 2 seconds if still on page
+                        setTimeout(() => {
+                            if (this.classList.contains('loading')) {
+                                this.classList.remove('loading');
+                                this.innerHTML = '📥 Download PDF';
+                            }
+                        }, 2000);
+                    }
+                });
+            });
+            
+            // Add filter form submission indicator
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function() {
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.innerHTML = '🔍 Filtering...';
+                        submitBtn.disabled = true;
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
