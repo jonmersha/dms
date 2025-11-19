@@ -1,5 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
+# settings.py
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,6 +25,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Backup settings
+BACKUP_DIR = os.path.join(BASE_DIR, 'backups')
+MAX_BACKUP_AGE_DAYS = 30  # Auto-delete backups older than 30 days
+
+# Ensure backup directory exists
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
 # Application definition
 INSTALLED_APPS = [
     'jazzmin',
@@ -34,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_filters',
     'rest_framework',
+    
     'djoser',
     'debug_toolbar',
     'corsheaders',  # Add this for CORS
@@ -60,7 +70,7 @@ ROOT_URLCONF = 'dms.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],  # Add this line,
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

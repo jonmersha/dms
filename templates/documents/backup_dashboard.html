@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backup Management</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; margin: 5px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .backup-list { margin-top: 20px; }
+        .backup-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 5px; }
+        .status-completed { border-left: 4px solid #28a745; }
+        .status-failed { border-left: 4px solid #dc3545; }
+        .status-running { border-left: 4px solid #007bff; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 24px; font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Backup Management</h1>
+        
+        <div class="navigation">
+            <a href="{% url 'documents:document_list' %}" class="btn btn-primary">← Back to Documents</a>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_documents }}</div>
+                <div class="stat-label">Total Documents</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ backups|length }}</div>
+                <div class="stat-label">Backup Operations</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Create New Backup</h2>
+            <form method="post" action="{% url 'documents:create_backup' %}">
+                {% csrf_token %}
+                
+                <div style="margin-bottom: 15px;">
+                    <label><strong>Backup Type:</strong></label><br>
+                    <select name="backup_type" style="padding: 8px; width: 200px;">
+                        {% for value, label in backup_types %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>
+                        <input type="checkbox" name="include_files" checked> Include Document Files
+                    </label><br>
+                    <label>
+                        <input type="checkbox" name="include_database" checked> Include Database
+                    </label><br>
+                    <label>
+                        <input type="checkbox" name="compression" checked> Enable Compression
+                    </label><br>
+                    <label>
+                        <input type="checkbox" name="encryption"> Enable Encryption
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-success">🚀 Start Backup</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Recent Backups</h2>
+            
+            {% if backups %}
+            <div class="backup-list">
+                {% for backup in backups %}
+                <div class="backup-item status-{{ backup.status|lower }}">
+                    <div style="display: flex; justify-content: between; align-items: center;">
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0;">{{ backup.name }}</h3>
+                            <p style="margin: 5px 0; color: #666;">
+                                Type: {{ backup.get_backup_type_display }} | 
+                                Status: <strong>{{ backup.get_status_display }}</strong> |
+                                Created: {{ backup.started_at|date:"M d, Y H:i" }}
+                            </p>
+                            {% if backup.backed_up_documents %}
+                            <p style="margin: 5px 0; color: #666;">
+                                Documents: {{ backup.backed_up_documents }}/{{ backup.total_documents }} 
+                                ({{ backup.success_rate|floatformat:1 }}% success)
+                            </p>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if backup.status == 'COMPLETED' and backup.backup_file %}
+                                <a href="{% url 'documents:download_backup' backup.id %}" class="btn btn-primary">📥 Download</a>
+                            {% endif %}
+                            <a href="{% url 'documents:backup_logs' backup.id %}" class="btn btn-warning">📋 Logs</a>
+                            <form method="post" action="{% url 'documents:delete_backup' backup.id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this backup?')">🗑️ Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p>No backups created yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

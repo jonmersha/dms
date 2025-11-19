@@ -43,3 +43,7 @@ class AuditPeriodAdmin(admin.ModelAdmin):
             return f"{delta.days} days"
         return "N/A"
     duration_days.short_description = 'Duration'
+    
+    def save_model(self, request, obj, form, change):
+        # You can track who created/modified audit periods if needed
+        super().save_model(request, obj, form, change)

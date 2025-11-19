@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile - Document Management System</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+        }
+        .profile-card { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .back-link { 
+            margin-bottom: 20px; 
+        }
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            padding: 10px 15px;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .back-link a:hover {
+            background: #667eea;
+            color: white;
+        }
+        .profile-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .profile-info {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 12px 0;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+        }
+        .info-value {
+            color: #6c757d;
+            text-align: right;
+        }
+        .role-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .role-superuser {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .role-staff {
+            background: #d4edda;
+            color: #155724;
+        }
+        .role-user {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 25px;
+            border-top: 1px solid #e9ecef;
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-block;
+            margin: 0 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        .permissions {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .permissions h4 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        .permission-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .permission-icon {
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="back-link">
+            <a href="{% url 'home' %}">← Back to Home</a>
+        </div>
+        
+        <div class="profile-card">
+            <div class="profile-header">
+                <h1 style="color: #2c3e50; margin-bottom: 10px;">👤 User Profile</h1>
+                <p style="color: #6c757d;">Your account information and permissions</p>
+            </div>
+            
+            <div class="profile-info">
+                <div class="info-item">
+                    <span class="info-label">Username:</span>
+                    <span class="info-value">{{ user.username }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ user.email }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Full Name:</span>
+                    <span class="info-value">
+                        {% if user.first_name or user.last_name %}
+                            {{ user.first_name }} {{ user.last_name }}
+                        {% else %}
+                            <span style="color: #6c757d; font-style: italic;">Not set</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">User Role:</span>
+                    <span class="info-value">
+                        {% if user.is_superuser %}
+                            <span class="role-badge role-superuser">Super Administrator</span>
+                        {% elif user.is_staff %}
+                            <span class="role-badge role-staff">Staff Member</span>
+                        {% else %}
+                            <span class="role-badge role-user">Regular User</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Account Created:</span>
+                    <span class="info-value">{{ user.date_joined|date:"M d, Y" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Last Login:</span>
+                    <span class="info-value">{{ user.last_login|date:"M d, Y H:i" }}</span>
+                </div>
+            </div>
+
+            <!-- Permissions Section -->
+            <div class="permissions">
+                <h4>🔐 Your Permissions</h4>
+                <div class="permission-item">
+                    <span class="permission-icon">📁</span>
+                    <span><strong>Browse Documents:</strong> All users</span>
+                </div>
+                <div class="permission-item">
+                    <span class="permission-icon">📥</span>
+                    <span><strong>Download Documents:</strong> All users (restricted documents require access)</span>
+                </div>
+                {% if user.is_staff %}
+                <div class="permission-item">
+                    <span class="permission-icon">📤</span>
+                    <span><strong>Upload Documents:</strong> ✅ Staff members only</span>
+                </div>
+                <div class="permission-item">
+                    <span class="permission-icon">✏️</span>
+                    <span><strong>Edit Documents:</strong> ✅ Your uploaded documents</span>
+                </div>
+                {% else %}
+                <div class="permission-item">
+                    <span class="permission-icon">📤</span>
+                    <span><strong>Upload Documents:</strong> ❌ Staff members only</span>
+                </div>
+                <div class="permission-item">
+                    <span class="permission-icon">✏️</span>
+                    <span><strong>Edit Documents:</strong> ❌ Staff members only</span>
+                </div>
+                {% endif %}
+                {% if user.is_superuser %}
+                <div class="permission-item">
+                    <span class="permission-icon">⚙️</span>
+                    <span><strong>Admin Access:</strong> ✅ Full system administration</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="actions">
+                <a href="{% url 'home' %}" class="btn btn-primary">🏠 Go to Home</a>
+                <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">🚪 Logout</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
