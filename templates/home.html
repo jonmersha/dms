@@ -82,6 +82,50 @@
             border-left: 4px solid #ffc107;
             padding-left: 15px;
         }
+        .backup-links {
+            border-left: 4px solid #6f42c1;
+            padding-left: 15px;
+        }
+        .login-section {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            border-left: 5px solid #ffc107;
+            text-align: center;
+        }
+        .login-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .login-btn {
+            padding: 12px 25px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .login-btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .login-btn-primary:hover {
+            background: #0056b3;
+            border-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .login-btn-secondary {
+            background: white;
+            color: #007bff;
+        }
+        .login-btn-secondary:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+        }
         .logout-form {
             display: inline;
         }
@@ -176,6 +220,16 @@
             border-color: #e9ecef !important;
             color: #6c757d !important;
         }
+        .user-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .user-welcome {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -233,14 +287,44 @@
                     {% endif %}
                 </span>
             </div>
+            <div class="status-item">
+                <span>Backup Access:</span>
+                <span>
+                    {% if user.is_staff %}
+                    <span style="color: #28a745;">✅ Allowed (Staff)</span>
+                    {% elif user.is_authenticated %}
+                    <span style="color: #ffc107;">❌ Staff Only</span>
+                    {% else %}
+                    <span style="color: #dc3545;">❌ Login Required</span>
+                    {% endif %}
+                </span>
+            </div>
         </div>
         
-        <!-- User Information -->
+        <!-- Login Section (Only show when not logged in) -->
+        {% if not user.is_authenticated %}
+        <div class="login-section">
+            <h3 style="margin-top: 0; color: #856404;">🔒 Authentication Required</h3>
+            <p style="margin: 0 0 20px 0; color: #856404;">
+                Please log in to access all system features including document management and backup operations
+            </p>
+            <div class="login-buttons">
+                <a href="{% url 'login' %}?next={{ request.path }}" class="login-btn login-btn-primary">
+                    🔑 User Login
+                </a>
+                <a href="/admin/login/" class="login-btn login-btn-secondary">
+                    ⚙️ Admin Login
+                </a>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- User Information & Actions -->
         {% if user.is_authenticated %}
         <div class="user-info">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <strong>👤 Logged in as:</strong> {{ user.username }}
+            <div class="user-actions">
+                <div class="user-welcome">
+                    <strong>👤 Welcome, {{ user.username }}</strong>
                     {% if user.is_superuser %}
                     <span style="color: #dc3545; margin-left: 10px;">• Superuser</span>
                     {% elif user.is_staff %}
@@ -248,36 +332,23 @@
                     {% else %}
                     <span style="color: #007bff; margin-left: 10px;">• Regular User</span>
                     {% endif %}
-                    <div style="margin-top: 5px; color: #6c757d; font-size: 0.9em;">
-                        Email: {{ user.email }}
-                        {% if user.is_staff %}
-                        • <span style="color: #28a745;">Can upload documents</span>
-                        {% else %}
-                        • <span style="color: #6c757d;">Can view/download documents only</span>
-                        {% endif %}
-                    </div>
                 </div>
-                <div style="text-align: right;">
-                    <div style="margin-bottom: 5px;">
-                        <a href="{% url 'profile' %}" style="color: #007bff; text-decoration: none; margin-right: 15px;">👤 Profile</a>
-                    </div>
+                <div>
+                    <a href="{% url 'profile' %}" style="color: #007bff; text-decoration: none; margin-right: 15px;">👤 Profile</a>
                     <form action="{% url 'logout' %}" method="post" class="logout-form">
                         {% csrf_token %}
                         <button type="submit" class="logout-btn">🚪 Logout</button>
                     </form>
                 </div>
             </div>
-        </div>
-        {% else %}
-        <div class="user-info" style="text-align: center;">
-            <p style="margin: 0 0 15px 0; font-size: 1.1em;">🔒 Authentication Required</p>
-            <p style="margin: 0 0 20px 0; color: #6c757d;">Please log in to access all system features</p>
-            <a href="{% url 'login' %}?next={{ request.path }}" class="link-item" style="display: inline-block; margin: 5px; background: #007bff; color: white; border-color: #007bff;">
-                🔑 Login to System
-            </a>
-            <a href="/admin/login/" class="link-item" style="display: inline-block; margin: 5px;">
-                ⚙️ Admin Login
-            </a>
+            <div style="color: #6c757d; font-size: 0.9em; margin-top: 10px;">
+                Email: {{ user.email }}
+                {% if user.is_staff %}
+                • <span style="color: #28a745;">Can upload documents and manage backups</span>
+                {% else %}
+                • <span style="color: #6c757d;">Can view/download documents only</span>
+                {% endif %}
+            </div>
         </div>
         {% endif %}
         
@@ -287,15 +358,27 @@
             <div class="link-group user-links">
                 <h3>📄 Document Management</h3>
                 {% if user.is_authenticated %}
-                <a href="/documents/" class="link-item">📁 Browse Documents</a>
+                <a href="{% url 'documents:document_list' %}" class="link-item">📁 Browse Documents</a>
                 {% if user.is_staff %}
-                <a href="/documents/create/" class="link-item">📤 Upload New Document</a>
+                <a href="{% url 'documents:document_create' %}" class="link-item">📤 Upload New Document</a>
                 {% else %}
                 <div class="link-item disabled-item staff-only">📤 Upload Document</div>
                 {% endif %}
                 {% else %}
-                <a href="{% url 'login' %}?next=/documents/" class="link-item login-required">📁 Browse Documents</a>
-                <a href="{% url 'login' %}?next=/documents/create/" class="link-item login-required">📤 Upload Document</a>
+                <a href="{% url 'login' %}?next={% url 'documents:document_list' %}" class="link-item login-required">📁 Browse Documents</a>
+                <a href="{% url 'login' %}?next={% url 'documents:document_create' %}" class="link-item login-required">📤 Upload Document</a>
+                {% endif %}
+            </div>
+
+            <!-- Backup & Recovery Links -->
+            <div class="link-group backup-links">
+                <h3>💾 Backup & Recovery</h3>
+                {% if user.is_authenticated and user.is_staff %}
+                <a href="{% url 'documents:backup_dashboard' %}" class="link-item">📦 Backup Dashboard</a>
+                <a href="{% url 'documents:create_backup' %}" class="link-item">🔄 Create New Backup</a>
+                {% else %}
+                <a href="{% url 'login' %}?next={% url 'documents:backup_dashboard' %}" class="link-item login-required">📦 Backup Dashboard</a>
+                <div class="link-item disabled-item staff-only">🔄 Create New Backup</div>
                 {% endif %}
             </div>
 
@@ -323,21 +406,6 @@
                 <a href="{% url 'login' %}" class="link-item login-required">⚙️ Account Settings</a>
                 {% endif %}
             </div>
-
-            <!-- Quick Actions -->
-            {% if user.is_authenticated %}
-            <div class="link-group" style="border-left: 4px solid #6f42c1; padding-left: 15px;">
-                <h3>🚀 Quick Actions</h3>
-                <a href="/documents/" class="link-item" style="background: #e7f3ff; border-color: #007bff;">📋 View Documents</a>
-                {% if user.is_staff %}
-                <a href="/documents/create/" class="link-item" style="background: #e8f5e8; border-color: #28a745;">🆕 Upload Quick Report</a>
-                <a href="/admin/documents/document/" class="link-item" style="background: #fff3cd; border-color: #ffc107;">📊 Manage All Documents</a>
-                {% else %}
-                <div class="link-item disabled-item staff-only">🆕 Upload Quick Report</div>
-                <div class="link-item disabled-item staff-only">📊 Manage All Documents</div>
-                {% endif %}
-            </div>
-            {% endif %}
         </div>
 
         <!-- System Information & Help -->
@@ -350,6 +418,7 @@
                         <li>Staff members can upload audit reports</li>
                         <li>Set document restrictions for sensitive files</li>
                         <li>Use filters to find documents quickly</li>
+                        <li>Staff can create system backups for data safety</li>
                     </ul>
                 </div>
                 <div>
@@ -374,6 +443,9 @@
                 <a href="{% url 'login' %}" style="color: #6c757d; text-decoration: none; margin: 0 10px;">Login</a>
                 {% endif %}
                 <a href="/admin/" style="color: #6c757d; text-decoration: none; margin: 0 10px;">Admin</a>
+                {% if user.is_authenticated and user.is_staff %}
+                <a href="{% url 'documents:backup_dashboard' %}" style="color: #6c757d; text-decoration: none; margin: 0 10px;">Backups</a>
+                {% endif %}
             </div>
             <small style="color: #6c757d;">
                 Document Management System v1.0 • 
@@ -382,47 +454,5 @@
             </small>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add click animation to links
-            const links = document.querySelectorAll('.link-item');
-            links.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    if (this.classList.contains('login-required') && !{{ user.is_authenticated|yesno:"true,false" }}) {
-                        e.preventDefault();
-                        this.style.background = '#fff3cd';
-                        this.style.borderColor = '#ffc107';
-                        setTimeout(() => {
-                            this.style.background = '';
-                            this.style.borderColor = '';
-                        }, 1000);
-                    }
-                });
-            });
-
-            // Auto-hide messages after 5 seconds
-            const messages = document.querySelectorAll('.alert');
-            messages.forEach(message => {
-                setTimeout(() => {
-                    message.style.opacity = '0';
-                    message.style.transition = 'opacity 0.5s ease';
-                    setTimeout(() => {
-                        message.style.display = 'none';
-                    }, 500);
-                }, 5000);
-            });
-
-            // Add loading state to logout button
-            const logoutForm = document.querySelector('.logout-form');
-            if (logoutForm) {
-                logoutForm.addEventListener('submit', function() {
-                    const button = this.querySelector('.logout-btn');
-                    button.innerHTML = 'Logging out...';
-                    button.disabled = true;
-                });
-            }
-        });
-    </script>
 </body>
 </html>
