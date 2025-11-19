@@ -9,8 +9,8 @@ DEBUG = True
 SECRET_KEY = 'django-insecure-nr0t&gitkib8ayb3m+$!7*(&7%vjyo6qj^1rza6a55@j@x=d(d'
 
 ALLOWED_HOSTS = [
-    'm.besheger.com',
-    'www.m.besheger.com',
+    'dms.besheger.com',
+    'www.dms.besheger.com',
     'localhost',
     '127.0.0.1',
     '192.168.1.6',
