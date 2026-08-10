@@ -541,11 +541,49 @@
                     </div>
                 </div>
 
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>🏢 Department / Team</label>
+                        <select name="department">
+                            <option value="">All</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if request.GET.department == dept.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ dept.name }} ({{ dept.get_level_display }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>👤 Owner</label>
+                        <select name="owner">
+                            <option value="">All Owners</option>
+                            {% for u in users %}
+                                <option value="{{ u.id }}" {% if request.GET.owner == u.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ u.get_full_name|default:u.username }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>📑 Status</label>
+                        <select name="status">
+                            <option value="">All Statuses</option>
+                            {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
                 <div style="text-align: center; margin-top: 20px;">
                     <button type="submit" class="btn">🔍 Apply Filters</button>
                     <a href="?" class="btn btn-clear">🔄 Clear</a>
-                    <!-- Only show upload button for staff users -->
-                    {% if user.is_authenticated and user.is_staff %}
+                    <!-- Only show upload button for staff users or Team Managers -->
+                    {% if user.is_authenticated and user.is_staff or user.role == 'TEAM_MANAGER' %}
                     <a href="{% url 'documents:document_create' %}" class="btn btn-upload">
                         📤 Upload Document
                     </a>
@@ -558,8 +596,6 @@
         <div class="documents-grid">
             {% if documents %}
                 {% for document in documents %}
-                    <!-- Only show document if user has access -->
-                    {% if not document.restricted or user.is_authenticated and user in document.allowed_users.all or user == document.uploaded_by or user.is_superuser %}
                     <div class="document-card {% if document.restricted %}restricted{% endif %}">
                         <div class="document-header">
                             <h3 class="document-title">{{ document.title }}</h3>
@@ -573,6 +609,14 @@
                                 {% if document.restricted %}
                                     <span class="badge badge-restricted">🔒 Restricted</span>
                                 {% endif %}
+                                <span class="badge 
+                                    {% if document.status == 'APPROVED' %}bg-success
+                                    {% elif document.status == 'PENDING_APPROVAL' %}bg-warning
+                                    {% elif document.status == 'REJECTED' %}bg-danger
+                                    {% elif document.status == 'RETURNED' %}bg-info
+                                    {% else %}bg-secondary{% endif %} text-white">
+                                    {{ document.get_status_display }}
+                                </span>
                                 {% if user.is_authenticated and document.uploaded_by == user %}
                                     <span class="badge" style="background: #d4edda; color: #155724;">✨ Your Upload</span>
                                 {% endif %}
@@ -596,38 +640,18 @@
                             {% if document.restricted %}
                                 <p><strong>🔐 Access:</strong> 
                                     {% if user.is_authenticated %}
-                                        {% if user in document.allowed_users.all or user == document.uploaded_by or user.is_superuser %}
-                                            ✅ You have access
-                                        {% else %}
-                                            ❌ No access
-                                        {% endif %}
+                                        ✅ You have access
                                     {% else %}
-                                        🔒 Login required
+                                        ❌ Restricted Access
                                     {% endif %}
                                 </p>
                             {% endif %}
-                        </div>
                         
                         <div class="document-actions">
-                            {% if not document.restricted %}
-                                <a href="{% url 'documents:document_download' document.pk %}" class="btn-download">
-                                    📥 Download
-                                </a>
-                            {% else %}
-                                {% if user.is_authenticated and user in document.allowed_users.all or user == document.uploaded_by or user.is_superuser %}
-                                    <a href="{% url 'documents:document_download' document.pk %}" class="btn-download">
-                                        📥 Download
-                                    </a>
-                                {% else %}
-                                    <button class="btn-download btn-download-disabled" disabled>
-                                        {% if user.is_authenticated %}
-                                            ❌ No Access
-                                        {% else %}
-                                            🔒 Login Required
-                                        {% endif %}
-                                    </button>
-                                {% endif %}
-                            {% endif %}
+                            <a href="{% url 'documents:document_detail' document.pk %}" class="btn" style="background-color:#17a2b8; color:white; padding: 8px 16px; border-radius: 5px; text-decoration: none;">👁️ View Details</a>
+                            <a href="{% url 'documents:document_download' document.pk %}" class="btn-download">
+                                📥 Download
+                            </a>
                             
                             <!-- Only show edit button for staff users who own the document or superusers -->
                             {% if user.is_authenticated and user.is_staff and user == document.uploaded_by or user.is_superuser %}
@@ -637,7 +661,6 @@
                             {% endif %}
                         </div>
                     </div>
-                    {% endif %}
                 {% endfor %}
             {% else %}
                 <div class="no-docs">

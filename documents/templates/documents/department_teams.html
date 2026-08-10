@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Teams in Your Department</h2>
+    </div>
+
+    <div class="row">
+        {% for team in teams %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">{{ team.name }}</h5>
+                    <p class="card-text text-muted">
+                        Level: {{ team.get_level_display }}
+                    </p>
+                    
+                    {% if team.pending_docs > 0 %}
+                    <div class="alert alert-warning py-2 mb-3">
+                        <i class="fas fa-exclamation-circle me-1"></i>
+                        <strong>{{ team.pending_docs }}</strong> document(s) pending approval
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success py-2 mb-3">
+                        <i class="fas fa-check-circle me-1"></i>
+                        No pending approvals
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'documents:document_list' %}?department={{ team.id }}" class="btn btn-outline-primary btn-sm">
+                            View All Documents
+                        </a>
+                        {% if team.pending_docs > 0 %}
+                        <a href="{% url 'documents:document_list' %}?department={{ team.id }}&status=PENDING_APPROVAL" class="btn btn-warning btn-sm">
+                            Review Pending Documents
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No teams found in your department scope.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

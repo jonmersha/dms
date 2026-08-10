@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ document.title }}</h2>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Document Details</h4>
+                </div>
+                <div class="card-body">
+                    <p><strong>Category:</strong> {{ document.get_category_display }}</p>
+                    <p><strong>Status:</strong> {{ document.get_status_display }}</p>
+                    <p><strong>Owner:</strong> {{ document.uploaded_by.get_full_name }} ({{ document.uploaded_by.department.name }})</p>
+                    <p><strong>Uploaded:</strong> {{ document.created_at|date:"F j, Y H:i" }}</p>
+                    
+                    {% if document.deletion_requested %}
+                    <div class="alert alert-danger">
+                        <strong>Deletion Requested:</strong> {{ document.deletion_reason }}
+                        {% if can_manage %}
+                        <form method="post" action="{% url 'documents:review_deletion' document.id %}" class="mt-2">
+                            {% csrf_token %}
+                            <button type="submit" name="action" value="APPROVE" class="btn btn-danger btn-sm">Approve Deletion (Permanent)</button>
+                            <button type="submit" name="action" value="REJECT" class="btn btn-secondary btn-sm">Reject Request</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <a href="{% url 'documents:document_download' document.id %}" class="btn btn-primary mt-3">Download Latest Version</a>
+                    
+                    {% if can_edit %}
+                        <div class="mt-3">
+                            {% if document.status == 'DRAFT' or document.status == 'RETURNED' %}
+                                <a href="{% url 'documents:document_update' document.id %}" class="btn btn-secondary">Edit Document</a>
+                                
+                                <form method="post" action="{% url 'documents:document_submit' document.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success">Submit for Approval</button>
+                                </form>
+                            {% endif %}
+                            
+                            {% if not document.is_deleted and not document.deletion_requested %}
+                                <form method="post" action="{% url 'documents:document_request_deletion' document.id %}" class="d-inline mt-2 mt-md-0 ml-md-2" style="margin-left: 5px;">
+                                    {% csrf_token %}
+                                    <div class="input-group" style="max-width: 400px; display: inline-flex;">
+                                        <input type="text" name="reason" class="form-control" placeholder="Reason for deletion" required>
+                                        <button type="submit" class="btn btn-outline-danger">Request Deletion</button>
+                                    </div>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if document.status == 'PENDING_APPROVAL' and can_manage %}
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h4>Review & Approval</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'documents:document_approve' document.id %}">
+                        {% csrf_token %}
+                        <div class="form-group mb-3">
+                            <label><strong>Review Comments:</strong></label>
+                            <textarea name="comments" class="form-control" rows="3" placeholder="Add optional comments explaining your decision..." required></textarea>
+                        </div>
+                        <button type="submit" name="action" value="APPROVE" class="btn btn-success">Approve</button>
+                        <button type="submit" name="action" value="RETURN" class="btn btn-warning">Return for Correction</button>
+                        <button type="submit" name="action" value="REJECT" class="btn btn-danger">Reject</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if can_manage or can_edit %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Versions</h4>
+                </div>
+                <div class="card-body">
+                    <ul>
+                        {% for version in versions %}
+                        <li>Version {{ version.version_number }} - Uploaded on {{ version.created_at|date:"F j, Y H:i" }}</li>
+                        {% empty %}
+                        <li>No previous versions.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if can_manage or can_edit %}
+        <div class="col-md-4">
+            
+            {% if audit_logs %}
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h4>Comprehensive Audit Trail</h4>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <ul class="list-group list-group-flush">
+                        {% for log in audit_logs %}
+                        <li class="list-group-item">
+                            <small class="text-muted">{{ log.timestamp|date:"M j, Y H:i" }}</small><br>
+                            <strong>{{ log.user_username|default:log.user.username }}</strong> 
+                            <span class="badge 
+                                {% if log.action == 'APPROVED' or log.action == 'CREATED' or log.result == 'SUCCESS' %}bg-success
+                                {% elif log.action == 'REJECTED' or log.action == 'DOWNLOAD_DENIED' or log.result == 'DENIED' %}bg-danger
+                                {% elif 'RETURNED' in log.action or 'REVOKED' in log.action %}bg-warning
+                                {% else %}bg-secondary{% endif %}">
+                                {{ log.get_action_display }}
+                            </span><br>
+                            
+                            {% if log.comments %}
+                                <span class="text-muted small">"{{ log.comments }}"</span><br>
+                            {% endif %}
+                            
+                            {% if log.previous_values or log.new_values %}
+                                <details>
+                                    <summary class="small text-primary" style="cursor:pointer;">View changes</summary>
+                                    <div class="small bg-light p-2 mt-1 rounded">
+                                        {% if log.previous_values %}
+                                        <strong>Previous:</strong> <pre class="mb-1 p-1">{{ log.previous_values|pprint }}</pre>
+                                        {% endif %}
+                                        {% if log.new_values %}
+                                        <strong>New:</strong> <pre class="mb-0 p-1">{{ log.new_values|pprint }}</pre>
+                                        {% endif %}
+                                    </div>
+                                </details>
+                            {% endif %}
+                            
+                            {% if log.ip_address %}
+                                <small class="text-muted" style="font-size: 0.7em;">IP: {{ log.ip_address }}</small>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Temporary Access Grants</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'documents:manage_access' document.id %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="GRANT">
+                        <div class="form-group mb-2">
+                            <label>User ID</label>
+                            <input type="number" name="user_id" class="form-control" required>
+                        </div>
+                        <div class="form-group mb-2">
+                            <label>Start Date (Optional)</label>
+                            <input type="datetime-local" name="start_date" class="form-control">
+                        </div>
+                        <div class="form-group mb-2">
+                            <label>Days Valid</label>
+                            <input type="number" name="days" value="1" class="form-control" required>
+                        </div>
+                        <div class="form-group mb-2">
+                            <label>Reason</label>
+                            <textarea name="reason" class="form-control" rows="2" required></textarea>
+                        </div>
+                        <div class="form-check mb-1">
+                            <input type="checkbox" name="can_view" class="form-check-input" id="canView" checked>
+                            <label class="form-check-label" for="canView">Allow View</label>
+                        </div>
+                        <div class="form-check mb-1">
+                            <input type="checkbox" name="can_download" class="form-check-input" id="canDownload">
+                            <label class="form-check-label" for="canDownload">Allow Download</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" name="can_print" class="form-check-input" id="canPrint">
+                            <label class="form-check-label" for="canPrint">Allow Print</label>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-sm w-100">Grant Access</button>
+                    </form>
+                    
+                    <hr>
+                    <ul class="list-group list-group-flush">
+                        {% for grant in temporary_accesses %}
+                        <li class="list-group-item {% if not grant.is_active %}text-muted{% endif %}">
+                            <strong>{{ grant.user.username }}</strong> 
+                            <span class="badge {% if grant.status == 'ACTIVE' %}bg-success{% elif grant.status == 'REVOKED' %}bg-danger{% else %}bg-secondary{% endif %} float-end">{{ grant.status }}</span>
+                            <br>
+                            <small>Starts: {{ grant.start_date|date:"M j H:i" }}</small><br>
+                            <small>Expires: {{ grant.expires_at|date:"M j H:i" }}</small><br>
+                            <small>Permissions: View ({{ grant.can_view|yesno:"Y,N" }}), DL ({{ grant.can_download|yesno:"Y,N" }}), Print ({{ grant.can_print|yesno:"Y,N" }})</small><br>
+                            
+                            {% if grant.status == 'REVOKED' %}
+                                <small class="text-danger">Revoked by: {{ grant.revoked_by.username }} ({{ grant.revocation_reason }})</small><br>
+                            {% endif %}
+                            
+                            {% if grant.status == 'ACTIVE' %}
+                            <form method="post" action="{% url 'documents:manage_access' document.id %}" class="mt-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="REVOKE">
+                                <input type="hidden" name="access_id" value="{{ grant.id }}">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" name="revocation_reason" class="form-control" placeholder="Revocation reason" required>
+                                    <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+                                </div>
+                            </form>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

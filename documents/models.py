@@ -3,10 +3,13 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from audits.models import AuditPeriod
+from django.contrib.auth.models import Group
+from users.models import AuditDepartment
 
 # documents/models.py (add this to your existing models)
 import json
 from django.utils import timezone
+from .managers import DocumentQuerySet
 
 
 def pdf_upload_path(instance, filename):
@@ -41,6 +44,14 @@ class Document(models.Model):
         ('Q2', 'Quarter 2 (Oct-Dec)'),
         ('Q3', 'Quarter 3 (Jan-Mar)'),
         ('Q4', 'Quarter 4 (Apr-Jun)'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('PENDING_APPROVAL', 'Pending Approval'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+        ('RETURNED', 'Returned for Correction'),
     ]
     
     title = models.CharField(max_length=255)
@@ -90,6 +101,55 @@ class Document(models.Model):
         related_name='accessible_documents'
     )
     
+    allowed_groups = models.ManyToManyField(
+        Group,
+        blank=True,
+        related_name='accessible_documents'
+    )
+    
+    allowed_departments = models.ManyToManyField(
+        AuditDepartment,
+        blank=True,
+        related_name='accessible_documents_by_dept'
+    )
+    
+    download_restricted = models.BooleanField(default=False, help_text="If true, only explicitly allowed users can download this document.")
+    
+    download_allowed_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name='downloadable_documents'
+    )
+    
+    download_allowed_groups = models.ManyToManyField(
+        Group,
+        blank=True,
+        related_name='downloadable_documents'
+    )
+    
+    download_allowed_departments = models.ManyToManyField(
+        AuditDepartment,
+        blank=True,
+        related_name='downloadable_documents_by_dept'
+    )
+    
+    department = models.ForeignKey(
+        AuditDepartment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='owned_documents',
+        help_text="The internal audit structure department that owns this document"
+    )
+    
+    objects = DocumentQuerySet.as_manager()
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPROVED')
+    deletion_requested = models.BooleanField(default=False)
+    deletion_reason = models.TextField(blank=True)
+    is_deleted = models.BooleanField(default=False)
+    is_archived = models.BooleanField(default=False)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -121,6 +181,8 @@ class Document(models.Model):
             raise ValidationError({'audit_type': 'Audit type should only be selected for audit reports.'})
 
     def save(self, *args, **kwargs):
+        if not self.department and self.uploaded_by and getattr(self.uploaded_by, 'department', None):
+            self.department = self.uploaded_by.department
         self.clean()
         super().save(*args, **kwargs)
     
@@ -132,28 +194,89 @@ class Document(models.Model):
     
     def can_download(self, user):
         """Check if user can download this document"""
-        if not self.restricted:
+        from django.utils import timezone
+        
+        # 1. Must have VIEW permission first (authentication, status, etc)
+        if not Document.objects.filter(id=self.id).accessible_by(user).exists():
+            return False
+            
+        # 2. Superusers, Chiefs, and Owners bypass download restrictions
+        if getattr(user, 'is_superuser', False) or getattr(user, 'role', None) == 'CHIEF':
             return True
-        return user.is_authenticated and (
-            user == self.uploaded_by or 
-            self.allowed_users.filter(id=user.id).exists() or
-            user.is_superuser
-        )
+        if self.uploaded_by == user:
+            return True
+            
+        # 3. If download is unrestricted, everyone who can view can download
+        if not self.download_restricted:
+            return True
+            
+        # 4. Check explicit standard permissions for download
+        if self.download_allowed_users.filter(id=user.id).exists():
+            return True
+        if self.download_allowed_groups.filter(id__in=user.groups.all()).exists():
+            return True
+            
+        # Check department scope
+        if getattr(user, 'department', None):
+            user_depts = [d.id for d in user.department.get_all_sub_departments()]
+            if self.download_allowed_departments.filter(id__in=user_depts).exists():
+                return True
+            # Directors/Managers can download if their department owns the document
+            if getattr(user, 'role', None) in ['DIRECTOR', 'TEAM_MANAGER']:
+                if self.department_id in user_depts:
+                    return True
+                    
+        # 5. Check Temporary Authorization
+        now = timezone.now()
+        has_temp = self.temporary_accesses.filter(
+            user=user,
+            status='ACTIVE',
+            start_date__lte=now,
+            expires_at__gt=now,
+            can_download=True
+        ).exists()
+        
+        return has_temp
+        
+    def can_manage(self, user):
+        """Check if user has Chief or Director-level oversight of this document"""
+        if not user.is_authenticated:
+            return False
+            
+        if user.is_superuser or getattr(user, 'role', None) == 'CHIEF':
+            return True
+            
+        if getattr(user, 'role', None) == 'DIRECTOR' and self.department_id and getattr(user, 'department', None):
+            user_depts = [d.id for d in user.department.get_all_sub_departments()]
+            if self.department_id in user_depts:
+                return True
+                
+        return False
     
     def can_edit(self, user):
         """Check if user can edit this document"""
-        return user.is_authenticated and (
-            user == self.uploaded_by or 
-            user.is_superuser or
-            user.is_staff
-        )
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser or user.is_staff:
+            return True
+        if user == self.uploaded_by:
+            return True
+        # Team Manager can edit their team's documents
+        if getattr(user, 'role', None) == 'TEAM_MANAGER' and self.department_id and getattr(user, 'department', None):
+            if self.department_id == user.department.id:
+                return True
+        return False
     
     def can_delete(self, user):
-        """Check if user can delete this document"""
+        """Check if user can hard-delete this document"""
         return user.is_authenticated and (
             user == self.uploaded_by or 
             user.is_superuser
         )
+        
+    def can_request_deletion(self, user):
+        """Check if user can request deletion"""
+        return self.can_edit(user) and not self.is_deleted and not self.deletion_requested
 
 class BackupOperation(models.Model):
     BACKUP_TYPE_CHOICES = [
@@ -244,3 +367,100 @@ class BackupLog(models.Model):
     
     def __str__(self):
         return f"{self.timestamp} - {self.get_level_display()} - {self.message[:50]}"
+
+class DocumentVersion(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='versions')
+    pdf_file = models.FileField(upload_to=pdf_upload_path)
+    version_number = models.PositiveIntegerField()
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-version_number']
+
+
+
+class TemporaryAccess(models.Model):
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Active'),
+        ('REVOKED', 'Revoked'),
+        ('EXPIRED', 'Expired'),
+    ]
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='temporary_accesses')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='temporary_grants')
+    granted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='granted_accesses')
+    start_date = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    can_view = models.BooleanField(default=True)
+    can_download = models.BooleanField(default=False)
+    can_print = models.BooleanField(default=False)
+    reason = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='revoked_accesses')
+    revocation_reason = models.TextField(blank=True)
+
+    @property
+    def is_active(self):
+        now = timezone.now()
+        return self.status == 'ACTIVE' and self.start_date <= now <= self.expires_at
+
+class DocumentAuditLog(models.Model):
+    ACTION_CHOICES = [
+        # Access
+        ('VIEW', 'Viewed'),
+        ('DOWNLOAD', 'Downloaded'),
+        ('DOWNLOAD_DENIED', 'Download Denied'),
+        # Creation / Modification
+        ('CREATED', 'Created'),
+        ('UPLOADED', 'Uploaded'),
+        ('METADATA_UPDATED', 'Metadata Updated'),
+        ('VERSION_CREATED', 'Version Created'),
+        # Approval Workflow
+        ('APPROVAL_REQUESTED', 'Approval Requested'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+        ('RETURNED_FOR_CORRECTION', 'Returned for Correction'),
+        # Authorization
+        ('AUTHORIZATION_GRANTED', 'Authorization Granted'),
+        ('AUTHORIZATION_REVOKED', 'Authorization Revoked'),
+        ('AUTHORIZATION_EXPIRED', 'Authorization Expired'),
+        # Deletion & Archive Lifecycle
+        ('DELETION_REQUESTED', 'Deletion Requested'),
+        ('DELETION_APPROVED', 'Deletion Approved'),
+        ('DELETION_REJECTED', 'Deletion Rejected'),
+        ('PERMANENT_DELETION', 'Permanent Deletion'),
+        ('ARCHIVED', 'Archived'),
+        ('RESTORED', 'Restored'),
+    ]
+
+    document = models.ForeignKey('Document', on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    document_title = models.CharField(max_length=255, blank=True)
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    user_username = models.CharField(max_length=150, blank=True)
+    role = models.CharField(max_length=50, blank=True)
+    department = models.CharField(max_length=100, blank=True)
+    team = models.CharField(max_length=100, blank=True)
+    
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True)
+    
+    result = models.CharField(max_length=50, blank=True)  # e.g., SUCCESS, DENIED
+    comments = models.TextField(blank=True)
+    
+    previous_values = models.JSONField(null=True, blank=True)
+    new_values = models.JSONField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Document Audit Log'
+        verbose_name_plural = 'Document Audit Logs'
+        
+    def __str__(self):
+        return f"[{self.timestamp}] {self.user_username} - {self.action} on '{self.document_title}'"

@@ -264,7 +264,9 @@
             <div class="status-item">
                 <span>User Role:</span>
                 <span>
-                    {% if user.is_superuser %}
+                    {% if user.role %}
+                    <span style="color: #007bff; font-weight: bold;">{{ user.get_role_display }}</span>
+                    {% elif user.is_superuser %}
                     <span style="color: #dc3545;">Super Administrator</span>
                     {% elif user.is_staff %}
                     <span style="color: #28a745;">Staff Member</span>
@@ -278,10 +280,10 @@
             <div class="status-item">
                 <span>Document Upload:</span>
                 <span>
-                    {% if user.is_staff %}
-                    <span style="color: #28a745;">✅ Allowed (Staff)</span>
+                    {% if user.is_staff or user.role == 'TEAM_MANAGER' %}
+                    <span style="color: #28a745;">✅ Allowed</span>
                     {% elif user.is_authenticated %}
-                    <span style="color: #ffc107;">❌ Not Allowed (Users can only view/download)</span>
+                    <span style="color: #ffc107;">❌ Not Allowed</span>
                     {% else %}
                     <span style="color: #dc3545;">❌ Login Required</span>
                     {% endif %}
@@ -325,12 +327,13 @@
             <div class="user-actions">
                 <div class="user-welcome">
                     <strong>👤 Welcome, {{ user.username }}</strong>
+                    {% if user.role %}
+                    <span style="color: #007bff; margin-left: 10px; font-weight: bold;">• {{ user.get_role_display }}</span>
+                    {% endif %}
                     {% if user.is_superuser %}
                     <span style="color: #dc3545; margin-left: 10px;">• Superuser</span>
                     {% elif user.is_staff %}
                     <span style="color: #28a745; margin-left: 10px;">• Staff Member</span>
-                    {% else %}
-                    <span style="color: #007bff; margin-left: 10px;">• Regular User</span>
                     {% endif %}
                 </div>
                 <div>
@@ -359,11 +362,17 @@
                 <h3>📄 Document Management</h3>
                 {% if user.is_authenticated %}
                 <a href="{% url 'documents:document_list' %}" class="link-item">📁 Browse Documents</a>
-                {% if user.is_staff %}
+                
+                {% if user.role == 'DIRECTOR' or user.role == 'CHIEF' %}
+                <a href="{% url 'documents:department_teams' %}" class="link-item">👥 Review Department Teams</a>
+                {% endif %}
+
+                {% if user.is_staff or user.role == 'TEAM_MANAGER' %}
                 <a href="{% url 'documents:document_create' %}" class="link-item">📤 Upload New Document</a>
                 {% else %}
                 <div class="link-item disabled-item staff-only">📤 Upload Document</div>
                 {% endif %}
+                
                 {% else %}
                 <a href="{% url 'login' %}?next={% url 'documents:document_list' %}" class="link-item login-required">📁 Browse Documents</a>
                 <a href="{% url 'login' %}?next={% url 'documents:document_create' %}" class="link-item login-required">📤 Upload Document</a>
@@ -399,6 +408,7 @@
                 {% if user.is_authenticated %}
                 <a href="/auth/users/me/" class="link-item">👤 User Profile (API)</a>
                 <a href="/auth/jwt/create/" class="link-item">🔑 Get JWT Token</a>
+                <a href="/api/docs/" class="link-item">📖 Swagger API Docs</a>
                 <a href="{% url 'profile' %}" class="link-item">⚙️ Account Settings</a>
                 {% else %}
                 <a href="{% url 'login' %}?next=/auth/users/me/" class="link-item login-required">👤 User Profile (API)</a>
