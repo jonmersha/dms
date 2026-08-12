@@ -25,9 +25,7 @@ class DocumentAdmin(admin.ModelAdmin):
         'quarter', 
         'uploaded_by', 
         'restricted', 
-        'created_at', 
-        'download_link'
-    ]
+        'created_at']
     
     list_filter = [
         'category', 
@@ -40,33 +38,23 @@ class DocumentAdmin(admin.ModelAdmin):
     
     search_fields = ['title']
     filter_horizontal = ['allowed_users']
-    readonly_fields = ['created_at', 'updated_at', 'uploaded_by', 'download_link']
+    readonly_fields = ['created_at', 'updated_at', 'uploaded_by']
     
     fieldsets = (
         ('Document Information', {
-            'fields': ('title', 'category', 'audit_type', 'audit_period', 'quarter', 'pdf_file')
+            'fields': ('title', 'category', 'audit_type', 'audit_period', 'quarter')
         }),
         ('Access Control', {
             'fields': ('restricted', 'allowed_users')
         }),
         ('Metadata', {
-            'fields': ('uploaded_by', 'created_at', 'updated_at', 'download_link'),
-            'classes': ('collapse',)
-        }),
-    )
+            'fields': ('uploaded_by', 'created_at', 'updated_at'),
+            'classes': ('collapse')
+        }))
     
     def get_display_category(self, obj):
         return obj.get_display_category()
     get_display_category.short_description = 'Category/Type'
-    
-    def download_link(self, obj):
-        if obj.pk and obj.pdf_file:
-            return format_html(
-                '<a href="{}" target="_blank" style="background: #007bff; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px; display: inline-block;">📥 Download</a>',
-                reverse('admin_document_download', args=[obj.pk])
-            )
-        return "No file"
-    download_link.short_description = "Download"
     
     def save_model(self, request, obj, form, change):
         # Auto-set the uploaded_by field to current user

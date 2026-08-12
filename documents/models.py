@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 from audits.models import AuditPeriod
 from django.contrib.auth.models import Group
-from users.models import AuditDepartment
+from users.models import Department
 
 # documents/models.py (add this to your existing models)
 import json
@@ -55,6 +55,7 @@ class Document(models.Model):
     ]
     
     title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True, help_text="Optional document description")
     
     # New fields for audit type and category
     audit_type = models.CharField(
@@ -108,7 +109,7 @@ class Document(models.Model):
     )
     
     allowed_departments = models.ManyToManyField(
-        AuditDepartment,
+        Department,
         blank=True,
         related_name='accessible_documents_by_dept'
     )
@@ -128,13 +129,13 @@ class Document(models.Model):
     )
     
     download_allowed_departments = models.ManyToManyField(
-        AuditDepartment,
+        Department,
         blank=True,
         related_name='downloadable_documents_by_dept'
     )
     
     department = models.ForeignKey(
-        AuditDepartment,
+        Department,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -191,24 +192,34 @@ class Document(models.Model):
         if self.category == 'AUDIT_REPORTS' and self.audit_type:
             return f"{self.get_audit_type_display()}"
         return self.get_category_display()
+        
+    def can_view(self, user):
+        """Check if user can view this document"""
+        return Document.objects.accessible_by(user, include_deleted=True).filter(id=self.id).exists()
     
     def can_download(self, user):
         """Check if user can download this document"""
         from django.utils import timezone
-        
-        # 1. Must have VIEW permission first (authentication, status, etc)
+        # 1. Admin/Superuser cannot download any documents
+        if getattr(user, 'is_superuser', False) or getattr(user, 'role', None) == 'ADMIN':
+            return False
+
+        # 2. Must have VIEW permission first (authentication, status, etc)
         if not Document.objects.filter(id=self.id).accessible_by(user).exists():
             return False
             
-        # 2. Superusers, Chiefs, and Owners bypass download restrictions
-        if getattr(user, 'is_superuser', False) or getattr(user, 'role', None) == 'CHIEF':
+        # 3. Chiefs and Owners bypass download restrictions
+        if getattr(user, 'role', None) == 'CHIEF':
             return True
+
         if self.uploaded_by == user:
             return True
             
-        # 3. If download is unrestricted, everyone who can view can download
+        # 3. By default, only CHIEF, DIRECTOR, and TEAM_MANAGER can download.
+        # Other roles (like AUDITOR, AUDITEE, VISITOR) must rely on explicit permissions below.
         if not self.download_restricted:
-            return True
+            if getattr(user, 'role', None) in ['CHIEF', 'DIRECTOR', 'TEAM_MANAGER']:
+                return True
             
         # 4. Check explicit standard permissions for download
         if self.download_allowed_users.filter(id=user.id).exists():
@@ -251,6 +262,16 @@ class Document(models.Model):
             if self.department_id in user_depts:
                 return True
                 
+        return False
+        
+    def can_request_access(self, user):
+        """Check if user can request/grant temporary access"""
+        if self.can_manage(user):
+            return True
+        if getattr(user, 'role', None) == 'TEAM_MANAGER' and self.department_id and getattr(user, 'department', None):
+            user_depts = [d.id for d in user.department.get_all_sub_departments()]
+            if self.department_id in user_depts:
+                return True
         return False
     
     def can_edit(self, user):
@@ -382,6 +403,7 @@ class DocumentVersion(models.Model):
 
 class TemporaryAccess(models.Model):
     STATUS_CHOICES = [
+        ('PENDING', 'Pending Approval'),
         ('ACTIVE', 'Active'),
         ('REVOKED', 'Revoked'),
         ('EXPIRED', 'Expired'),
@@ -389,6 +411,7 @@ class TemporaryAccess(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='temporary_accesses')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='temporary_grants')
     granted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='granted_accesses')
+    authorizer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='authorized_access_requests')
     start_date = models.DateTimeField(default=timezone.now)
     expires_at = models.DateTimeField()
     can_view = models.BooleanField(default=True)
@@ -464,3 +487,36 @@ class DocumentAuditLog(models.Model):
         
     def __str__(self):
         return f"[{self.timestamp}] {self.user_username} - {self.action} on '{self.document_title}'"
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+import os
+
+@receiver(post_delete, sender=Document)
+def auto_delete_file_on_delete_document(sender, instance, **kwargs):
+    """
+    Deletes physical file from filesystem
+    when corresponding `Document` object is deleted.
+    """
+    if instance.pdf_file:
+        if os.path.isfile(instance.pdf_file.path):
+            os.remove(instance.pdf_file.path)
+
+@receiver(post_delete, sender=DocumentVersion)
+def auto_delete_file_on_delete_documentversion(sender, instance, **kwargs):
+    """
+    Deletes physical file from filesystem
+    when corresponding `DocumentVersion` object is deleted.
+    """
+    if instance.pdf_file:
+        if os.path.isfile(instance.pdf_file.path):
+            os.remove(instance.pdf_file.path)
+
+@receiver(post_delete, sender=BackupOperation)
+def auto_delete_file_on_delete_documentbackup(sender, instance, **kwargs):
+    """
+    Deletes physical file from filesystem
+    when corresponding `BackupOperation` object is deleted.
+    """
+    if instance.backup_file:
+        if os.path.isfile(instance.backup_file.path):
+            os.remove(instance.backup_file.path)

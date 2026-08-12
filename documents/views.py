@@ -21,7 +21,7 @@ def staff_required(function=None):
         return actual_decorator(function)
     return actual_decorator
 
-from users.models import AuditDepartment
+from users.models import Department
 
 class DepartmentTeamsView(LoginRequiredMixin, ListView):
     template_name = 'documents/department_teams.html'
@@ -30,11 +30,11 @@ class DepartmentTeamsView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated or not user.department:
-            return AuditDepartment.objects.none()
+            return Department.objects.none()
             
         # Get all sub-departments for the user's department
         sub_depts = user.department.get_all_sub_departments()
-        return AuditDepartment.objects.filter(id__in=[d.id for d in sub_depts if d.level == 'TEAM'])
+        return Department.objects.filter(id__in=[d.id for d in sub_depts if d.level == 'TEAM'])
         
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -111,10 +111,10 @@ class DocumentListView(ListView):
         context['audit_periods'] = AuditPeriod.objects.all()
         context['status_choices'] = Document.STATUS_CHOICES
         
-        from users.models import AuditDepartment
+        from users.models import Department
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        context['departments'] = AuditDepartment.objects.all()
+        context['departments'] = Department.objects.all()
         context['users'] = User.objects.filter(is_active=True).order_by('username')
         
         # Add statistics

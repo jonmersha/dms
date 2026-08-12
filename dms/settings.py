@@ -54,7 +54,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Add this
+    'corsheaders.middleware.CorsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -71,7 +71,7 @@ ROOT_URLCONF = 'dms.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],  # Add this line,
+        'DIRS': [BASE_DIR / 'templates', BASE_DIR / 'front'],  # Add this line,
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -116,8 +116,16 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files
+
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STATICFILES_DIRS = [
+    BASE_DIR / 'front',
+]
+
+WHITENOISE_ROOT = BASE_DIR / 'front'
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -145,6 +153,7 @@ AUTH_USER_MODEL = 'users.User'
 
 # Djoser
 DJOSER = {
+    'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',
     'SERIALIZERS': {
         'user_create': 'users.serializer.UserCreateSerializer',
         'current_user': 'users.serializer.UserSerializer',
@@ -153,10 +162,10 @@ DJOSER = {
 
 # Jazzmin
 JAZZMIN_SETTINGS = {
-    "site_title": "Milki Admin",
-    "site_header": "Milki Administration",
-    "welcome_sign": "Welcome to the Milki Admin Portal",
-    "search_model": "users.User",  # Fixed: changed from auth.User to users.User
+    "site_title": "DSM Admin",
+    "site_header": "DSM Administration",
+    "welcome_sign": "Welcome to the DSM Admin Portal",
+    "search_model": "users.User",  
     "show_sidebar": True,
     "user_avatar": None,
 }

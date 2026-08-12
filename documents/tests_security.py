@@ -1,8 +1,17 @@
 from django.test import TestCase
+
+def create_test_user(username, email, department, role):
+    from django.contrib.auth.models import Group
+    from users.models import User
+    user = User.objects.create_user(username=username, email=email, department=department)
+    group, _ = Group.objects.get_or_create(name=role)
+    user.groups.add(group)
+    return user
+
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from documents.models import Document, TemporaryAccess
-from users.models import AuditDepartment
+from users.models import Department
 from audits.models import AuditPeriod
 from django.utils import timezone
 from datetime import timedelta
@@ -13,23 +22,23 @@ User = get_user_model()
 class SecurityVulnerabilityTests(TestCase):
     def setUp(self):
         # Create hierarchy
-        self.chief_dept = AuditDepartment.objects.create(name='Chief', level='CHIEF')
-        self.dir_dept = AuditDepartment.objects.create(name='Directorate A', level='DIRECTORATE', parent=self.chief_dept)
-        self.team_dept = AuditDepartment.objects.create(name='Team A1', level='TEAM', parent=self.dir_dept)
+        self.chief_dept = Department.objects.create(name='Chief', level='ORGANIZATION')
+        self.dir_dept = Department.objects.create(name='Directorate A', level='DIRECTORATE', parent=self.chief_dept)
+        self.team_dept = Department.objects.create(name='Team A1', level='TEAM', parent=self.dir_dept)
         
-        self.dir_dept_b = AuditDepartment.objects.create(name='Directorate B', level='DIRECTORATE', parent=self.chief_dept)
-        self.team_dept_b = AuditDepartment.objects.create(name='Team B1', level='TEAM', parent=self.dir_dept_b)
+        self.dir_dept_b = Department.objects.create(name='Directorate B', level='DIRECTORATE', parent=self.chief_dept)
+        self.team_dept_b = Department.objects.create(name='Team B1', level='TEAM', parent=self.dir_dept_b)
         
         # Create Users
-        self.chief_user = User.objects.create_user(username='chief', email='chief@test.com', department=self.chief_dept, role='CHIEF')
+        self.chief_user = create_test_user(username='chief', email='chief@test.com', department=self.chief_dept, role='Chief')
         
-        self.dir_a_user = User.objects.create_user(username='dira', email='dira@test.com', department=self.dir_dept, role='DIRECTOR')
-        self.team_a_manager = User.objects.create_user(username='mgra', email='mgra@test.com', department=self.team_dept, role='TEAM_MANAGER')
-        self.team_a_member = User.objects.create_user(username='memba', email='memba@test.com', department=self.team_dept, role='TEAM_MEMBER')
+        self.dir_a_user = create_test_user(username='dira', email='dira@test.com', department=self.dir_dept, role='Director')
+        self.team_a_manager = create_test_user(username='mgra', email='mgra@test.com', department=self.team_dept, role='Team Manager')
+        self.team_a_member = create_test_user(username='memba', email='memba@test.com', department=self.team_dept, role='Team Member')
         
-        self.dir_b_user = User.objects.create_user(username='dirb', email='dirb@test.com', department=self.dir_dept_b, role='DIRECTOR')
-        self.team_b_manager = User.objects.create_user(username='mgrb', email='mgrb@test.com', department=self.team_dept_b, role='TEAM_MANAGER')
-        self.team_b_member = User.objects.create_user(username='membb', email='membb@test.com', department=self.team_dept_b, role='TEAM_MEMBER')
+        self.dir_b_user = create_test_user(username='dirb', email='dirb@test.com', department=self.dir_dept_b, role='Director')
+        self.team_b_manager = create_test_user(username='mgrb', email='mgrb@test.com', department=self.team_dept_b, role='Team Manager')
+        self.team_b_member = create_test_user(username='membb', email='membb@test.com', department=self.team_dept_b, role='Team Member')
         
         # Audit period
         self.audit_period = AuditPeriod.objects.create(

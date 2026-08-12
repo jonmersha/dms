@@ -3,7 +3,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 class DocumentQuerySet(models.QuerySet):
-    def accessible_by(self, user):
+    def accessible_by(self, user, include_deleted=False):
         """
         Filter documents based on strict organizational scope and permissions.
         - CHIEF: Organization-wide access (sees all statuses and deletions)
@@ -14,16 +14,33 @@ class DocumentQuerySet(models.QuerySet):
         if not user.is_authenticated:
             return self.filter(restricted=False, status='APPROVED', is_deleted=False)
             
-        if user.is_superuser or getattr(user, 'role', None) == 'CHIEF':
+        # 1. Start with the base query
+        queryset = self.all()
+        user_groups = user.groups.values_list('name', flat=True) if user.pk else []
+        if not include_deleted:
+            # Users can still see their own deleted documents
+            queryset = queryset.filter(Q(is_deleted=False) | Q(uploaded_by=user))
+        # 2. ADMIN or superuser cannot view any documents
+        if getattr(user, 'is_superuser', False) or 'System Administrator' in user_groups:
+            return self.none()
+
+        # CHIEF sees everything
+        if 'Chief' in user_groups:
             return self.all()
+
             
-        visibility_query = Q(restricted=False) | Q(uploaded_by=user) | Q(allowed_users=user) | Q(allowed_groups__in=user.groups.all())
+        # 3. Base visibility starts with explicit permissions and ownership
+        visibility_query = Q(uploaded_by=user) | Q(allowed_users=user) | Q(allowed_groups__in=user.groups.all())
+        
+        # 4. Internal audit staff (not Auditees/Visitors) can see all unrestricted documents
+        if 'Auditor' not in user_groups:
+            visibility_query |= Q(restricted=False)
         
         if getattr(user, 'department', None):
             user_depts = [d.id for d in user.department.get_all_sub_departments()]
             visibility_query |= Q(allowed_departments__in=user_depts)
             
-            if getattr(user, 'role', None) in ['DIRECTOR', 'TEAM_MANAGER']:
+            if ('Director' in user_groups or 'Team Manager' in user_groups):
                 visibility_query |= Q(department__in=user_depts)
                 
         # Also include documents where the user has active temporary access that grants view permission
@@ -36,7 +53,7 @@ class DocumentQuerySet(models.QuerySet):
             temporary_accesses__expires_at__gt=now
         )
         
-        # Standard users only see APPROVED and non-deleted documents unless they uploaded them
-        validity_query = (Q(status='APPROVED') & Q(is_deleted=False)) | Q(uploaded_by=user)
+        # Standard users only see APPROVED documents unless they uploaded them
+        validity_query = Q(status='APPROVED') | Q(uploaded_by=user)
         
-        return self.filter(visibility_query).filter(validity_query).distinct()
+        return queryset.filter(visibility_query).filter(validity_query).distinct()

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
@@ -9,8 +9,6 @@ from .views import custom_login, custom_logout, profile_view
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 urlpatterns = [
-    path('', TemplateView.as_view(template_name='home.html'), name='home'),
-    
     # Custom admin URLs must come BEFORE admin.site.urls
     path('admin/document/<int:pk>/download/', document_download_admin, name='admin_document_download'),
     
@@ -24,6 +22,7 @@ urlpatterns = [
     path('auth/', include('djoser.urls.jwt')),
     path('documents/', include('documents.urls')),
     path('api/', include('documents.api_urls')),
+    path('api/admin/', include('dms.api_admin_urls')),
     path('cd/', CreateAdminUserView.as_view(), name="create-admin"),
     
     # Swagger API Docs
@@ -33,6 +32,9 @@ urlpatterns = [
     
     # Intercept direct media access
     path('media/<path:file_path>', protected_media_view, name='protected_media'),
+    
+    # Catch-all route for React SPA
+    re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
 ]
 
 if settings.DEBUG:

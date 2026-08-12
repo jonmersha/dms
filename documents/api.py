@@ -9,6 +9,9 @@ from .models import Document, TemporaryAccess, DocumentAuditLog
 from .serializers import DocumentSerializer, TemporaryAccessSerializer
 from .permissions import CanViewDocument, CanEditDocument, CanManageDocument, CanDeleteDocument, CanDownloadDocument
 from .services.audit_service import log_document_event
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentSerializer
@@ -37,6 +40,63 @@ class DocumentViewSet(viewsets.ModelViewSet):
             
         return queryset
 
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        qs = self.get_queryset()
+        return Response({
+            'total': qs.count(),
+            'draft': qs.filter(status='DRAFT').count(),
+            'pending': qs.filter(status='PENDING_APPROVAL').count(),
+            'approved': qs.filter(status='APPROVED').count(),
+            'returned': qs.filter(status='RETURNED').count(),
+            'deletion_requested': qs.filter(deletion_requested=True).count(),
+        })
+
+    @action(detail=False, methods=['get'])
+    def chief_stats(self, request):
+        if getattr(request.user, 'role', None) != 'CHIEF':
+            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+        from django.db.models import Count
+        qs = Document.objects.all()
+        
+        dept_stats = qs.values('department__name').annotate(count=Count('id'))
+        cat_stats = qs.values('category').annotate(count=Count('id'))
+        recent_activity = DocumentAuditLog.objects.all().order_by('-timestamp')[:10]
+        
+        from .serializers import DocumentAuditLogSerializer
+        return Response({
+            'by_department': [{'name': d['department__name'] or 'Unassigned', 'value': d['count']} for d in dept_stats],
+            'by_category': [{'name': d['category'], 'value': d['count']} for d in cat_stats],
+            'recent_activity': DocumentAuditLogSerializer(recent_activity, many=True).data
+        })
+
+    @action(detail=False, methods=['get'])
+    def chief_action_items(self, request):
+        if getattr(request.user, 'role', None) != 'CHIEF':
+            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+        from .serializers import DocumentSerializer, TemporaryAccessSerializer
+        from users.models import Department
+        from django.db.models import Count, Q
+        
+        pending_docs = Document.objects.filter(status='PENDING_APPROVAL').order_by('-updated_at')
+        deletion_reqs = Document.objects.filter(deletion_requested=True).order_by('-updated_at')
+        access_reqs = TemporaryAccess.objects.filter(status='PENDING').order_by('-created_at')
+        
+        departments = Department.objects.annotate(
+            total_docs=Count('documents'),
+            pending_docs=Count('documents', filter=Q(documents__status='PENDING_APPROVAL')),
+            approved_docs=Count('documents', filter=Q(documents__status='APPROVED'))
+        ).values('id', 'name', 'level', 'total_docs', 'pending_docs', 'approved_docs')
+        
+        return Response({
+            'pending_documents': DocumentSerializer(pending_docs, many=True, context={'request': request}).data,
+            'deletion_requests': DocumentSerializer(deletion_reqs, many=True, context={'request': request}).data,
+            'access_requests': TemporaryAccessSerializer(access_reqs, many=True, context={'request': request}).data,
+            'departments_overview': list(departments)
+        })
+
     def get_permissions(self):
         if self.action in ['update', 'partial_update']:
             return [IsAuthenticated(), CanEditDocument()]
@@ -50,8 +110,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         doc = serializer.save(
             uploaded_by=user,
-            department=user.department,
-            team=user.team
+            department=user.department
         )
         if user.role in ['CHIEF', 'DIRECTOR']:
             doc.status = 'APPROVED'
@@ -61,8 +120,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             action='CREATED',
             document=doc,
             result='SUCCESS',
-            ip_address=self.request.META.get('REMOTE_ADDR'),
-            user_agent=self.request.META.get('HTTP_USER_AGENT')
+            request=self.request
         )
 
     def perform_update(self, serializer):
@@ -71,17 +129,25 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         old_values = {
             'title': doc.title,
-            'description': doc.description,
-            'document_type': doc.document_type,
             'category': doc.category,
         }
         
+        has_new_file = 'pdf_file' in self.request.FILES
+        
         updated_doc = serializer.save()
+        
+        if has_new_file:
+            from .models import DocumentVersion
+            version_number = updated_doc.versions.count() + 1
+            DocumentVersion.objects.create(
+                document=updated_doc,
+                pdf_file=updated_doc.pdf_file,
+                version_number=version_number,
+                uploaded_by=user
+            )
         
         new_values = {
             'title': updated_doc.title,
-            'description': updated_doc.description,
-            'document_type': updated_doc.document_type,
             'category': updated_doc.category,
         }
         
@@ -92,9 +158,78 @@ class DocumentViewSet(viewsets.ModelViewSet):
             result='SUCCESS',
             previous_values=old_values,
             new_values=new_values,
-            ip_address=self.request.META.get('REMOTE_ADDR'),
-            user_agent=self.request.META.get('HTTP_USER_AGENT')
+            request=self.request
         )
+
+    def perform_destroy(self, instance):
+        # Soft delete
+        instance.is_deleted = True
+        instance.save()
+        log_document_event(
+            user=self.request.user,
+            action='DELETED',
+            document=instance,
+            result='SUCCESS',
+            request=self.request
+        )
+
+    @action(detail=False, methods=['get'])
+    def recycle_bin(self, request):
+        """Get all deleted documents accessible by user"""
+        user = self.request.user
+        queryset = Document.objects.accessible_by(user, include_deleted=True).filter(is_deleted=True)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, CanManageDocument])
+    def restore(self, request, pk=None):
+        """Restore a soft-deleted document"""
+        # Need to fetch it explicitly since get_object() uses the standard queryset which hides deleted docs
+        document = get_object_or_404(Document.objects.accessible_by(request.user, include_deleted=True), pk=pk)
+        
+        document.is_deleted = False
+        document.save()
+        
+        log_document_event(
+            user=request.user,
+            action='RESTORED',
+            document=document,
+            result='SUCCESS',
+            request=request
+        )
+        return Response({'status': 'restored'})
+
+    @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated, CanDeleteDocument])
+    def permanent_delete(self, request, pk=None):
+        """Hard delete document and its file"""
+        document = get_object_or_404(Document.objects.accessible_by(request.user, include_deleted=True), pk=pk)
+        
+        # Log before deletion
+        title = document.title
+        # Delete file from storage
+        if document.pdf_file:
+            document.pdf_file.delete(save=False)
+            
+        # Hard delete from DB
+        document.delete()
+        
+        # Log after deletion
+        log_document_event(
+            user=request.user,
+            action='DELETED',
+            document=None,
+            result='PERMANENTLY_DELETED',
+            comments=f"Deleted document: {title}",
+            request=request
+        )
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, CanDownloadDocument])
     def download(self, request, pk=None):
@@ -116,8 +251,34 @@ class DocumentViewSet(viewsets.ModelViewSet):
             action='DOWNLOAD',
             document=document,
             result='SUCCESS',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
+            request=request
+        )
+            
+        response = FileResponse(open(file_path, 'rb'), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+        return response
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, CanViewDocument])
+    def preview(self, request, pk=None):
+        document = self.get_object()
+        
+        # Determine which file to serve
+        version_id = request.query_params.get('version')
+        if version_id:
+            version = get_object_or_404(document.versions.all(), id=version_id)
+            file_path = version.pdf_file.path
+        else:
+            file_path = document.pdf_file.path
+            
+        if not os.path.exists(file_path):
+            raise Http404("Document file not found.")
+            
+        log_document_event(
+            user=request.user,
+            action='PREVIEWED',
+            document=document,
+            result='SUCCESS',
+            request=request
         )
             
         response = FileResponse(open(file_path, 'rb'), content_type='application/pdf')
@@ -138,8 +299,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             action='APPROVAL_REQUESTED',
             document=document,
             result='SUCCESS',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
+            request=request
         )
         return Response({'status': 'submitted'})
 
@@ -172,8 +332,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             document=document,
             comments=comments,
             result='SUCCESS',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
+            request=request
         )
         return Response({'status': document.status})
 
@@ -198,8 +357,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
             document=document,
             comments=f"Reason: {reason}",
             result='SUCCESS',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
+            request=request
         )
         return Response({'status': 'deletion_requested'})
 
@@ -229,48 +387,110 @@ class DocumentViewSet(viewsets.ModelViewSet):
             action=log_action,
             document=document,
             result='SUCCESS',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
+            request=request
         )
-        return Response({'status': document.is_deleted})
-
-class TemporaryAccessViewSet(viewsets.ModelViewSet):
-    serializer_class = TemporaryAccessSerializer
-    permission_classes = [IsAuthenticated]
-    
-    def get_queryset(self):
-        user = self.request.user
-        if user.role in ['CHIEF', 'DIRECTOR']:
-            if user.role == 'CHIEF':
-                return TemporaryAccess.objects.all()
-            return TemporaryAccess.objects.filter(document__department=user.department)
-        return TemporaryAccess.objects.none()
-
-    def create(self, request):
-        doc_id = request.data.get('document')
-        document = get_object_or_404(Document, pk=doc_id)
-        if not document.can_manage(request.user):
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def grant_access(self, request, pk=None):
+        document = self.get_object()
+        
+        if not document.can_request_access(request.user):
             return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
             
-        serializer = self.get_serializer(data=request.data)
+        target_user = get_object_or_404(User, pk=request.data.get('user'))
+        
+        # Team Managers can only request access for Auditees and Visitors
+        if request.user.role == 'TEAM_MANAGER' and target_user.role not in ['AUDITEE', 'VISITOR']:
+            return Response({'error': 'Team Managers can only grant access to Auditees and Visitors'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Manually validate since we're not in a ModelViewSet for TemporaryAccess
+        serializer = TemporaryAccessSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        grant = serializer.save(granted_by=request.user)
+        
+        # Team Manager requests start as PENDING and require an authorizer
+        initial_status = 'PENDING' if request.user.role == 'TEAM_MANAGER' else 'ACTIVE'
+        
+        authorizer_id = request.data.get('authorizer')
+        if request.user.role == 'TEAM_MANAGER' and not authorizer_id:
+            return Response({'error': 'An Authorizer must be selected.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        authorizer = None
+        if authorizer_id:
+            authorizer = get_object_or_404(User, pk=authorizer_id)
+
+        grant = serializer.save(document=document, granted_by=request.user, status=initial_status, authorizer=authorizer)
         
         log_document_event(
             user=request.user,
-            action='ACCESS_GRANTED',
+            action='ACCESS_REQUESTED' if initial_status == 'PENDING' else 'ACCESS_GRANTED',
             document=document,
-            comments=f"Granted to {grant.user.username} until {grant.expires_at}",
+            comments=f"{'Requested' if initial_status == 'PENDING' else 'Granted'} access for {grant.user.username} until {grant.expires_at}",
             result='SUCCESS',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
+            request=request
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post'])
-    def revoke(self, request, pk=None):
-        grant = self.get_object()
-        if not grant.document.can_manage(request.user):
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def review_access(self, request, pk=None):
+        document = self.get_object()
+        
+        access_id = request.data.get('access_id')
+        if not access_id:
+            return Response({'error': 'access_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        grant = get_object_or_404(TemporaryAccess, pk=access_id, document=document)
+        
+        # Only Chiefs or Directors can review
+        if request.user.role not in ['CHIEF', 'DIRECTOR']:
+            return Response({'error': 'Not authorized to review access'}, status=status.HTTP_403_FORBIDDEN)
+            
+        # If an authorizer was specified, only that authorizer (or a Chief) can review
+        if grant.authorizer and grant.authorizer != request.user and request.user.role != 'CHIEF':
+            return Response({'error': f'Only {grant.authorizer.get_full_name()} can authorize this request.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        # Must have management access to the document
+        if not document.can_manage(request.user):
+            return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+        action_type = request.data.get('action')
+        reason = request.data.get('reason', '')
+        
+        if action_type == 'APPROVE':
+            grant.status = 'ACTIVE'
+            log_action = 'ACCESS_GRANTED'
+            comments = f"Approved access for {grant.user.username} until {grant.expires_at}"
+        elif action_type == 'REJECT':
+            grant.status = 'REVOKED'
+            grant.reason = reason
+            log_action = 'ACCESS_REVOKED'
+            comments = f"Rejected access for {grant.user.username}. Reason: {reason}"
+        else:
+            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        grant.save()
+        
+        log_document_event(
+            user=request.user,
+            action=log_action,
+            document=document,
+            comments=comments,
+            result='SUCCESS',
+            request=request
+        )
+        return Response({'status': grant.status})
+
+
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def revoke_access(self, request, pk=None):
+        document = self.get_object()
+        
+        access_id = request.data.get('access_id')
+        if not access_id:
+            return Response({'error': 'access_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        grant = get_object_or_404(TemporaryAccess, pk=access_id, document=document)
+        
+        if not document.can_manage(request.user):
             return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
             
         reason = request.data.get('reason', '')
@@ -280,10 +500,49 @@ class TemporaryAccessViewSet(viewsets.ModelViewSet):
         log_document_event(
             user=request.user,
             action='ACCESS_REVOKED',
-            document=grant.document,
+            document=document,
             comments=f"Revoked access for {grant.user.username}. Reason: {reason}",
             result='SUCCESS',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
+            request=request
         )
         return Response({'status': 'revoked'})
+
+class AccessReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only viewset for listing accesses across all documents.
+    """
+    serializer_class = TemporaryAccessSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        if user.role == 'CHIEF':
+            # Chiefs can see all accesses globally
+            return TemporaryAccess.objects.all().order_by('-start_date')
+            
+        elif user.role == 'DIRECTOR':
+            # Directors can see all accesses for documents in their department
+            return TemporaryAccess.objects.filter(
+                document__department=user.department
+            ).order_by('-start_date')
+            
+        elif user.role == 'TEAM_MANAGER':
+            # Team Managers can see accesses they granted, or accesses to documents uploaded by them
+            from django.db.models import Q
+            return TemporaryAccess.objects.filter(
+                Q(granted_by=user) | Q(document__uploaded_by=user)
+            ).order_by('-start_date')
+            
+        else:
+            # Regular users can only see accesses granted to them
+            return TemporaryAccess.objects.filter(user=user).order_by('-start_date')
+
+from rest_framework.permissions import IsAdminUser
+from .serializers import DocumentAuditLogSerializer
+
+class DocumentAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = DocumentAuditLog.objects.all().select_related('user', 'document').order_by('-timestamp')
+    serializer_class = DocumentAuditLogSerializer
+    permission_classes = [IsAdminUser]
+
