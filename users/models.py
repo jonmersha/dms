@@ -46,6 +46,7 @@ class User(AbstractUser):
     employee_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     profile_photo = models.ImageField(upload_to='profiles/', null=True, blank=True)
+    can_manage_public_content = models.BooleanField(default=False)
 
     @property
     def role(self):

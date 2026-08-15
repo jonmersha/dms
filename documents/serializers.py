@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Document, DocumentVersion, TemporaryAccess, DocumentAuditLog
+from .models import Document, Announcement, DocumentVersion, TemporaryAccess, DocumentAuditLog, BackupOperation
 from users.models import User
 
 class UserSerializer(serializers.ModelSerializer):
@@ -111,3 +111,26 @@ class DocumentSerializer(serializers.ModelSerializer):
     def get_can_download(self, obj):
         request = self.context.get('request')
         return obj.can_download(request.user) if request else False
+
+class BackupOperationSerializer(serializers.ModelSerializer):
+    created_by_details = UserSerializer(source='created_by', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    backup_type_display = serializers.CharField(source='get_backup_type_display', read_only=True)
+    
+    class Meta:
+        model = BackupOperation
+        fields = '__all__'
+        read_only_fields = [
+            'status', 'backup_file', 'file_size', 'total_documents', 
+            'backed_up_documents', 'failed_documents', 'started_at', 
+            'completed_at', 'error_log', 'created_by', 'name'
+        ]
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    author_name = serializers.CharField(source='author.full_name', read_only=True)
+    author_username = serializers.CharField(source='author.username', read_only=True)
+    
+    class Meta:
+        model = Announcement
+        fields = ['id', 'title', 'content', 'category', 'is_published', 'author', 'author_name', 'author_username', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at']

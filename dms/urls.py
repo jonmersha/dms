@@ -23,6 +23,7 @@ urlpatterns = [
     path('documents/', include('documents.urls')),
     path('api/', include('documents.api_urls')),
     path('api/admin/', include('dms.api_admin_urls')),
+    path('api/public-pages/', include('public_pages.urls')),
     path('cd/', CreateAdminUserView.as_view(), name="create-admin"),
     
     # Swagger API Docs

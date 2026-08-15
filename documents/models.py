@@ -520,3 +520,28 @@ def auto_delete_file_on_delete_documentbackup(sender, instance, **kwargs):
     if instance.backup_file:
         if os.path.isfile(instance.backup_file.path):
             os.remove(instance.backup_file.path)
+
+class Announcement(models.Model):
+    CATEGORY_CHOICES = [
+        ('INTERNAL_AUDIT', 'Internal Audit News'),
+        ('RISK', 'Risk Insights'),
+        ('EMERGING_RISK', 'Emerging Risks'),
+        ('GENERAL', 'General News'),
+    ]
+    
+    title = models.CharField(max_length=255)
+    content = models.TextField(help_text="Content of the announcement (Markdown or Plain Text)")
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='GENERAL')
+    is_published = models.BooleanField(default=True)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='announcements')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Announcement'
+        verbose_name_plural = 'Announcements'
+        
+    def __str__(self):
+        return f"[{self.get_category_display()}] {self.title}"

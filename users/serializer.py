@@ -1,20 +1,33 @@
+from rest_framework import serializers
 from djoser.serializers import UserCreateSerializer as BaseUserCreateSerializer, UserSerializer as BaseUserSerializer
+from django.contrib.auth.models import Group
 
 # from store import serializers
 
 class UserCreateSerializer(BaseUserCreateSerializer):
+    role = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), write_only=True, required=False)
+    
     class Meta(BaseUserCreateSerializer.Meta):
-        fields = ['id', 'email', 'username', 'password', 'first_name', 'last_name', 'employee_id', 'phone']
+        fields = ['id', 'email', 'username', 'password', 'first_name', 'last_name', 'employee_id', 'phone', 'department', 'role']
+
+    def validate(self, attrs):
+        role = attrs.pop('role', None)
+        validated_attrs = super().validate(attrs)
+        if role:
+            validated_attrs['role'] = role
+        return validated_attrs
         
     def create(self, validated_data):
+        role = validated_data.pop('role', None)
         user = super().create(validated_data)
         user.is_active = False
+        if role:
+            user.groups.add(role)
         user.save()
         # The UserAuditLog 'CREATED' signal will capture this automatically.
         return user
 
-from rest_framework import serializers
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import Permission
 from .models import Department, User
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -89,9 +102,9 @@ class UserSerializer(BaseUserSerializer):
             'id', 'username', 'email', 'first_name', 'middle_name', 'last_name', 
             'phone', 'employee_id', 'job_title', 'full_name', 'role', 'role_display', 
             'organization', 'department', 'team', 'permissions', 'status', 
-            'is_staff', 'is_superuser'
+            'is_staff', 'is_superuser', 'can_manage_public_content'
         ]
-        read_only_fields = ['id', 'username', 'role', 'role_display', 'organization', 'department', 'team', 'permissions', 'status', 'is_staff', 'is_superuser']
+        read_only_fields = ['id', 'username', 'role', 'role_display', 'organization', 'department', 'team', 'permissions', 'status', 'is_staff', 'is_superuser', 'can_manage_public_content']
 
     def update(self, instance, validated_data):
         # Prevent any manual group/department injection
@@ -130,15 +143,28 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role_display', 'groups', 'full_name', 'is_staff', 'is_superuser', 'is_active', 'department', 'password', 'job_title', 'employee_id', 'phone', 'profile_photo', 'middle_name']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role_display', 'groups', 'full_name', 'is_staff', 'is_superuser', 'can_manage_public_content', 'is_active', 'department', 'password', 'job_title', 'employee_id', 'phone', 'profile_photo', 'middle_name']
         extra_kwargs = {'password': {'write_only': True, 'required': False}}
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
+        # Ensure user is inactive until they click the email confirmation link
+        validated_data['is_active'] = False
         user = super().create(validated_data)
         if password:
             user.set_password(password)
             user.save()
+            
+        # Send Djoser activation email
+        try:
+            from djoser import email
+            context = {'user': user}
+            to = [user.email]
+            email.ActivationEmail(self.context.get('request'), context).send(to)
+        except Exception as e:
+            # Handle if email backend fails (e.g., SMTP not configured)
+            pass
+
         # The UserAuditLog 'CREATED' signal will capture this automatically.
         return user
 

@@ -5,7 +5,7 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = True
+DEBUG = False
 SECRET_KEY = 'django-insecure-nr0t&gitkib8ayb3m+$!7*(&7%vjyo6qj^1rza6a55@j@x=d(d'
 
 ALLOWED_HOSTS = [
@@ -43,16 +43,17 @@ INSTALLED_APPS = [
     'drf_spectacular',
     
     'djoser',
-    'debug_toolbar',
+    # 'debug_toolbar',
     'corsheaders',  # Add this for CORS
     'users',
     'audits',
     'documents',  # Fixed: changed from 'documents' to 'documents'
+    'public_pages',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
+    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -148,8 +149,20 @@ SIMPLE_JWT = {
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
 
+# Email Configuration (Console for development)
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'your-email@gmail.com'
+EMAIL_HOST_PASSWORD = 'your-app-password'
+
 # Djoser
 DJOSER = {
+    'SEND_ACTIVATION_EMAIL': True,
+    'SEND_CONFIRMATION_EMAIL': True,
+    'PASSWORD_CHANGED_EMAIL_CONFIRMATION': True,
+    'ACTIVATION_URL': 'activate/{uid}/{token}',
     'PASSWORD_RESET_CONFIRM_URL': 'password/reset/confirm/{uid}/{token}',
     'SERIALIZERS': {
         'user_create': 'users.serializer.UserCreateSerializer',

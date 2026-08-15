@@ -8,7 +8,9 @@ from datetime import datetime
 from django.conf import settings
 from django.core import serializers
 from django.db import transaction
+from django.core.files import File
 from django.utils import timezone
+import django
 from documents.models import Document, BackupOperation, BackupLog
 import cryptography
 from cryptography.fernet import Fernet
@@ -24,6 +26,25 @@ class BackupService:
         
         if backup_operation.encryption_key:
             self.fernet = Fernet(backup_operation.encryption_key.encode())
+            
+    def _get_documents_queryset(self):
+        """Get documents the user is authorized to backup"""
+        user = self.backup_operation.created_by
+        if not user:
+            return Document.objects.all()
+            
+        role = getattr(user, 'role', None)
+        if role in ['ADMIN', 'CHIEF'] or user.is_superuser:
+            return Document.objects.all()
+            
+        if role == 'DIRECTOR' and getattr(user, 'department', None):
+            dept_ids = [d.id for d in user.department.get_all_sub_departments()]
+            return Document.objects.filter(department_id__in=dept_ids)
+            
+        if role == 'TEAM_MANAGER' and getattr(user, 'department', None):
+            return Document.objects.filter(department_id=user.department.id)
+            
+        return Document.objects.none()
     
     def create_backup(self):
         """Main backup creation method"""
@@ -74,8 +95,8 @@ class BackupService:
         """Backup database data"""
         self._log('INFO', 'Starting database backup')
         
-        # Backup Document model
-        documents = Document.objects.all()
+        # Backup Document model based on user scope
+        documents = self._get_documents_queryset()
         self.backup_operation.total_documents = documents.count()
         
         data = {
@@ -83,7 +104,7 @@ class BackupService:
             'metadata': {
                 'backup_created': timezone.now().isoformat(),
                 'total_documents': documents.count(),
-                'django_version': settings.DJANGO_VERSION,
+                'django_version': django.get_version(),
             }
         }
         
@@ -101,7 +122,7 @@ class BackupService:
         documents_dir = os.path.join(self.temp_dir, 'documents')
         os.makedirs(documents_dir, exist_ok=True)
         
-        documents = Document.objects.all()
+        documents = self._get_documents_queryset()
         backed_up = 0
         failed = 0
         

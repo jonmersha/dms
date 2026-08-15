@@ -119,9 +119,13 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     """
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
-    permission_classes = [permissions.IsAdminUser]
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'first_name', 'last_name', 'email', 'employee_id', 'phone', 'job_title', 'groups__name', 'department__name']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
 
 from .serializer import UserSerializer
 
@@ -140,16 +144,20 @@ from .serializer import RoleSerializer, PermissionSerializer
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by('name')
     serializer_class = RoleSerializer
-    permission_classes = [permissions.IsAdminUser]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['username', 'first_name', 'last_name', 'email', 'employee_id', 'phone', 'job_title', 'groups__name', 'department__name']
+    search_fields = ['name']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
 
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permission.objects.all().order_by('content_type__app_label', 'codename')
     serializer_class = PermissionSerializer
     permission_classes = [permissions.IsAdminUser]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['username', 'first_name', 'last_name', 'email', 'employee_id', 'phone', 'job_title', 'groups__name', 'department__name']
+    search_fields = ['name', 'content_type__model']
 
 from .models import UserAuditLog
 from .serializer import UserAuditLogSerializer

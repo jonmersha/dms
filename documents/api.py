@@ -1,21 +1,27 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse, Http404
 import os
-from .models import Document, TemporaryAccess, DocumentAuditLog
-from .serializers import DocumentSerializer, TemporaryAccessSerializer
+from django.utils import timezone
+from .models import Document, TemporaryAccess, DocumentAuditLog, BackupOperation, Announcement
+from .serializers import DocumentSerializer, TemporaryAccessSerializer, BackupOperationSerializer, AnnouncementSerializer
+from rest_framework.exceptions import PermissionDenied
 from .permissions import CanViewDocument, CanEditDocument, CanManageDocument, CanDeleteDocument, CanDownloadDocument
 from .services.audit_service import log_document_event
+from .services.backup_service import BackupService
+from .services.restore_service import RestoreService
+import threading
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
 class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     
     def get_queryset(self):
         user = self.request.user
@@ -231,7 +237,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, CanDownloadDocument])
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticatedOrReadOnly, CanDownloadDocument])
     def download(self, request, pk=None):
         document = self.get_object()
         
@@ -258,7 +264,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
         return response
 
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, CanViewDocument])
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticatedOrReadOnly, CanViewDocument])
     def preview(self, request, pk=None):
         document = self.get_object()
         
@@ -546,3 +552,117 @@ class DocumentAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DocumentAuditLogSerializer
     permission_classes = [IsAdminUser]
 
+
+class BackupOperationViewSet(viewsets.ModelViewSet):
+    serializer_class = BackupOperationSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+    
+    def get_queryset(self):
+        user = self.request.user
+        role = getattr(user, 'role', None)
+        
+        if role in ['ADMIN', 'CHIEF'] or user.is_superuser:
+            return BackupOperation.objects.all().order_by('-started_at')
+        
+        if role in ['DIRECTOR', 'TEAM_MANAGER']:
+            return BackupOperation.objects.filter(created_by=user).order_by('-started_at')
+            
+        return BackupOperation.objects.none()
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        role = getattr(user, 'role', None)
+        if role not in ['ADMIN', 'CHIEF', 'DIRECTOR', 'TEAM_MANAGER'] and not user.is_superuser:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have permission to create backups.")
+            
+        backup = serializer.save(
+            created_by=user,
+            name=f"Backup_{user.username}_{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        )
+        
+        # Run backup in background
+        def run_backup_async():
+            service = BackupService(backup)
+            service.create_backup()
+            
+        thread = threading.Thread(target=run_backup_async)
+        thread.daemon = True
+        thread.start()
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, pk=None):
+        backup = self.get_object()
+        
+        if not backup.backup_file:
+            return Response({'error': 'No backup file available for download.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        file_path = backup.backup_file.path
+        if not os.path.exists(file_path):
+            return Response({'error': 'File missing.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        response = FileResponse(open(file_path, 'rb'), content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{backup.name}.zip"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def restore(self, request):
+        user = request.user
+        role = getattr(user, 'role', None)
+        if role not in ['ADMIN', 'CHIEF', 'DIRECTOR', 'TEAM_MANAGER'] and not user.is_superuser:
+            return Response({'error': 'Not authorized to restore.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        zip_file = request.FILES.get('file')
+        if not zip_file:
+            return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        import tempfile
+        import shutil
+        
+        # Save uploaded file temporarily
+        temp_dir = tempfile.mkdtemp()
+        temp_path = os.path.join(temp_dir, zip_file.name)
+        with open(temp_path, 'wb+') as dest:
+            for chunk in zip_file.chunks():
+                dest.write(chunk)
+                
+        try:
+            service = RestoreService(temp_path, user)
+            result = service.run_restore()
+            
+            if result.get('success'):
+                return Response({
+                    'status': 'success', 
+                    'restored': result.get('restored'), 
+                    'skipped': result.get('skipped')
+                })
+            else:
+                return Response({'error': result.get('error')}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        finally:
+            shutil.rmtree(temp_dir)
+
+class AnnouncementViewSet(viewsets.ModelViewSet):
+    serializer_class = AnnouncementSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    
+    def get_queryset(self):
+        qs = Announcement.objects.all()
+        if not self.request.user.is_authenticated:
+            qs = qs.filter(is_published=True)
+        return qs
+        
+    def perform_create(self, serializer):
+        if getattr(self.request.user, 'role', None) not in ['CHIEF', 'DIRECTOR']:
+            raise PermissionDenied("Only Chief or Director can create announcements.")
+        serializer.save(author=self.request.user)
+
+    def perform_update(self, serializer):
+        if getattr(self.request.user, 'role', None) not in ['CHIEF', 'DIRECTOR']:
+            raise PermissionDenied("Only Chief or Director can update announcements.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if getattr(self.request.user, 'role', None) not in ['CHIEF', 'DIRECTOR']:
+            raise PermissionDenied("Only Chief or Director can delete announcements.")
+        instance.delete()
