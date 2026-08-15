@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     ContentBlock, LearningPlaylist, LearningEpisode, 
-    CourseEnrollment, LessonProgress, Quiz, QuizQuestion, QuizAnswer, UserQuizAttempt
+    CourseEnrollment, LessonProgress, Quiz, QuizQuestion, QuizAnswer, UserQuizAttempt,
+    CertificateSettings
 )
 
 class ContentBlockSerializer(serializers.ModelSerializer):
@@ -35,13 +36,30 @@ class QuizSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = ['id', 'title', 'description', 'passing_score', 'questions']
 
+class AdminQuizAnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuizAnswer
+        fields = ['id', 'question', 'text', 'is_correct']
+
+class AdminQuizQuestionSerializer(serializers.ModelSerializer):
+    answers = AdminQuizAnswerSerializer(many=True, read_only=True)
+    class Meta:
+        model = QuizQuestion
+        fields = ['id', 'quiz', 'text', 'order', 'answers']
+
+class AdminQuizSerializer(serializers.ModelSerializer):
+    questions = AdminQuizQuestionSerializer(many=True, read_only=True)
+    class Meta:
+        model = Quiz
+        fields = ['id', 'episode', 'title', 'description', 'passing_score', 'questions']
+
 class LearningEpisodeSerializer(serializers.ModelSerializer):
     quiz = QuizSerializer(read_only=True)
     is_completed = serializers.SerializerMethodField()
     
     class Meta:
         model = LearningEpisode
-        fields = ['id', 'title', 'content_type', 'video_url', 'content_text', 'order', 'quiz', 'is_completed']
+        fields = ['id', 'title', 'content_type', 'video_url', 'content_text', 'order', 'quiz', 'is_completed', 'playlist']
 
     def get_is_completed(self, obj):
         request = self.context.get('request')
@@ -94,3 +112,7 @@ class BulkContentBlockUpdateSerializer(serializers.Serializer):
     def update(self, instance, validated_data):
         pass
 
+class CertificateSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CertificateSettings
+        fields = ['background_image', 'signature_image', 'chief_auditor_name', 'organization_name', 'motto', 'tagline']

@@ -3,13 +3,16 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import (
     ContentBlock, LearningPlaylist, LearningEpisode,
-    CourseEnrollment, LessonProgress, Quiz, QuizQuestion, QuizAnswer, UserQuizAttempt
+    CourseEnrollment, LessonProgress, Quiz, QuizQuestion, QuizAnswer, UserQuizAttempt,
+    CertificateSettings
 )
 from .serializers import (
     ContentBlockSerializer, BulkContentBlockUpdateSerializer,
     LearningPlaylistSerializer, LearningEpisodeSerializer,
-    QuizSerializer
+    QuizSerializer, CertificateSettingsSerializer
 )
+from rest_framework.parsers import MultiPartParser, FormParser
+
 
 class IsContentManager(permissions.BasePermission):
     """
@@ -19,8 +22,22 @@ class IsContentManager(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         return request.user and request.user.is_authenticated and (
-            request.user.is_superuser or request.user.can_manage_public_content
+            request.user.is_superuser or getattr(request.user, 'can_manage_public_content', False) or getattr(request.user, 'is_staff', False)
         )
+
+class CertificateSettingsViewSet(viewsets.ModelViewSet):
+    queryset = CertificateSettings.objects.all()
+    serializer_class = CertificateSettingsSerializer
+    permission_classes = [IsContentManager]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_object(self):
+        return CertificateSettings.load()
+
+    def list(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
 class ContentBlockViewSet(viewsets.ModelViewSet):
     queryset = ContentBlock.objects.all()
@@ -90,6 +107,263 @@ class LearningPlaylistViewSet(viewsets.ModelViewSet):
         # Optionally, delete LessonProgress as well? Usually kept for history.
         return Response({'status': 'unenrolled'}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['get'])
+    def certificate(self, request, pk=None):
+        course = self.get_object()
+        
+        # Verify 100% completion
+        total_episodes = course.episodes.count()
+        if total_episodes == 0:
+            return Response({'error': 'Course has no episodes'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        completed_episodes = LessonProgress.objects.filter(
+            user=request.user,
+            episode__playlist=course,
+            is_completed=True
+        ).count()
+        
+        if completed_episodes < total_episodes:
+            return Response({'error': 'Course not fully completed'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Generate PDF
+        import io
+        from django.http import HttpResponse
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import landscape, A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+        from datetime import date
+        from reportlab.lib.utils import ImageReader
+        from .models import CertificateSettings
+        
+        settings = CertificateSettings.load()
+
+        buffer = io.BytesIO()
+        width = 16 * inch
+        height = 9 * inch
+        c = canvas.Canvas(buffer, pagesize=(width, height))
+        
+        # Background Image
+        if settings.background_image:
+            try:
+                bg_img = ImageReader(settings.background_image.path)
+                c.drawImage(bg_img, 0, 0, width=width, height=height, preserveAspectRatio=False, mask='auto')
+            except Exception as e:
+                print(f"Failed to load background image: {e}")
+
+        # Header
+        c.setFont("Helvetica-Bold", 24)
+        c.setFillColor(colors.HexColor('#1E3A8A')) # Blue 900
+        c.drawCentredString(width / 2.0, height - 3.2*inch, settings.organization_name or "Coop Bank Internal Audit Excellence Center")
+        
+        # Motto
+        if settings.motto:
+            c.setFont("Helvetica-Oblique", 14)
+            c.setFillColor(colors.HexColor('#475569')) # Slate 600
+            c.drawCentredString(width / 2.0, height - 3.6*inch, settings.motto)
+        
+        # Title
+        c.setFont("Helvetica-Bold", 36)
+        c.setFillColor(colors.HexColor('#000000'))
+        c.drawCentredString(width / 2.0, height - 4.5*inch, "Certificate of Completion")
+        
+        # Subtitle
+        c.setFont("Helvetica", 16)
+        c.drawCentredString(width / 2.0, height - 5.1*inch, "This is to certify that")
+        
+        # Student Name
+        c.setFont("Helvetica-Oblique", 30)
+        c.setFillColor(colors.HexColor('#059669'))
+        student_name = request.user.get_full_name() or request.user.username
+        c.drawCentredString(width / 2.0, height - 5.7*inch, student_name.upper())
+        
+        # Course Detail
+        c.setFont("Helvetica", 16)
+        c.setFillColor(colors.HexColor('#000000'))
+        c.drawCentredString(width / 2.0, height - 6.4*inch, "has successfully completed the course:")
+        
+        # Course Name
+        c.setFont("Helvetica-Bold", 20)
+        c.drawCentredString(width / 2.0, height - 6.9*inch, course.title)
+        
+        # Tagline
+        if settings.tagline:
+            c.setFont("Helvetica-Oblique", 12)
+            c.setFillColor(colors.HexColor('#64748B')) # Slate 500
+            c.drawCentredString(width / 2.0, height - 7.5*inch, settings.tagline)
+        
+        # Date and Signature
+        c.setFont("Helvetica", 12)
+        today_str = date.today().strftime("%B %d, %Y")
+        c.drawString(2.5*inch, 2.0*inch, f"Date: {today_str}")
+        c.line(2.5*inch, 2.2*inch, 4.5*inch, 2.2*inch)
+        
+        # Signature Line
+        auditor_name = settings.chief_auditor_name or "Chief Internal Auditor"
+        
+        # Signature Image
+        if settings.signature_image:
+            try:
+                sig_img = ImageReader(settings.signature_image.path)
+                # Reduced size and centered over the 3-inch line (from width-5.5 to width-2.5)
+                c.drawImage(sig_img, width - 4.9*inch, 2.25*inch, width=1.8*inch, height=0.7*inch, preserveAspectRatio=True, mask='auto')
+            except Exception as e:
+                print(f"Failed to load signature image: {e}")
+        else:
+            c.setFont("Times-Italic", 20)
+            c.setFillColor(colors.HexColor('#0F172A'))
+            c.drawString(width - 5.0*inch, 2.3*inch, auditor_name)
+        
+        c.setStrokeColor(colors.black)
+        c.setLineWidth(1)
+        c.line(width - 5.5*inch, 2.2*inch, width - 2.5*inch, 2.2*inch)
+        
+        c.setFont("Helvetica-Bold", 12)
+        c.drawCentredString(width - 4.0*inch, 2.0*inch, "Chief Internal Auditor")
+        c.setFont("Helvetica", 11)
+        c.drawCentredString(width - 4.0*inch, 1.8*inch, auditor_name)
+        
+        c.showPage()
+        c.save()
+        
+        buffer.seek(0)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="certificate_{course.id}.pdf"'
+        return response
+
+    @action(detail=False, methods=['post'])
+    def import_youtube_playlist(self, request):
+        url = request.data.get('url')
+        if not url:
+            return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        import subprocess
+        import json
+        import re
+
+        try:
+            # Run yt-dlp to get playlist info
+            import sys
+            result = subprocess.run(
+                [sys.executable, '-m', 'yt_dlp', '--flat-playlist', '--dump-json', url],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            
+            videos = []
+            for line in result.stdout.splitlines():
+                if line.strip():
+                    videos.append(json.loads(line))
+                    
+            if not videos:
+                return Response({'error': 'No videos found in playlist'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            # Try to get playlist title from URL or metadata
+            match = re.search(r'list=([a-zA-Z0-9_-]+)', url)
+            playlist_id = match.group(1) if match else 'Unknown'
+            
+            # Create playlist
+            playlist, created = LearningPlaylist.objects.get_or_create(
+                playlist_id=playlist_id,
+                defaults={
+                    'title': f"Imported Playlist {playlist_id}",
+                    'description': "Course imported from YouTube.",
+                    'main_url': videos[0].get('url', ''),
+                    'order': 10
+                }
+            )
+            
+            if not created:
+                playlist.episodes.all().delete()
+                
+            order = 1
+            chunk_size = 10
+            subsection_num = 1
+
+            for i in range(0, len(videos), chunk_size):
+                chunk = videos[i:i + chunk_size]
+                
+                # Add video episodes
+                for video in chunk:
+                    LearningEpisode.objects.create(
+                        playlist=playlist,
+                        title=f"Section {subsection_num}: {video.get('title', 'Video')}",
+                        content_type='video',
+                        video_url=video.get('url', ''),
+                        order=order
+                    )
+                    order += 1
+
+                # Add subsection quiz
+                quiz_episode = LearningEpisode.objects.create(
+                    playlist=playlist,
+                    title=f"Subsection {subsection_num} Quiz",
+                    content_type='quiz',
+                    content_text=f"Test your knowledge on Subsection {subsection_num}",
+                    order=order
+                )
+                order += 1
+
+                quiz = Quiz.objects.create(
+                    episode=quiz_episode,
+                    title=f"Quiz: Subsection {subsection_num}",
+                    description=f"5 questions covering Subsection {subsection_num} topics.",
+                    passing_score=80
+                )
+
+                for q_num in range(1, 6): # Max 5 questions
+                    question = QuizQuestion.objects.create(
+                        quiz=quiz,
+                        text=f"Sample Question {q_num} for Subsection {subsection_num}?",
+                        order=q_num
+                    )
+                    for a_num, is_correct in [(1, True), (2, False), (3, False), (4, False)]:
+                        QuizAnswer.objects.create(
+                            question=question,
+                            text=f"Option {a_num}",
+                            is_correct=is_correct
+                        )
+                
+                subsection_num += 1
+
+            # Add final quiz with 10 questions
+            final_quiz_episode = LearningEpisode.objects.create(
+                playlist=playlist,
+                title="Final Course Assessment",
+                content_type='quiz',
+                content_text="Final assessment covering all topics.",
+                order=order
+            )
+
+            final_quiz = Quiz.objects.create(
+                episode=final_quiz_episode,
+                title="Final Assessment",
+                description="10 questions covering the entire course.",
+                passing_score=80
+            )
+
+            for q_num in range(1, 11):
+                question = QuizQuestion.objects.create(
+                    quiz=final_quiz,
+                    text=f"Final Assessment Question {q_num}?",
+                    order=q_num
+                )
+                for a_num, is_correct in [(1, False), (2, True), (3, False), (4, False)]:
+                    QuizAnswer.objects.create(
+                        question=question,
+                        text=f"Option {a_num}",
+                        is_correct=is_correct
+                    )
+
+            return Response({'status': 'success', 'playlist_id': playlist.id})
+            
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr if e.stderr else str(e)
+            return Response({'error': f'Failed to fetch playlist: {error_msg}'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class LearningEpisodeViewSet(viewsets.ModelViewSet):
     queryset = LearningEpisode.objects.all()
     serializer_class = LearningEpisodeSerializer
@@ -101,6 +375,26 @@ class LearningEpisodeViewSet(viewsets.ModelViewSet):
         if self.action == 'complete':
             return [permissions.IsAuthenticated()]
         return [IsContentManager()]
+        
+    def perform_create(self, serializer):
+        episode = serializer.save()
+        if episode.content_type == 'quiz' and not hasattr(episode, 'quiz'):
+            Quiz.objects.create(
+                episode=episode,
+                title=f"Quiz for {episode.title}",
+                description="Please update this quiz description.",
+                passing_score=80
+            )
+            
+    def perform_update(self, serializer):
+        episode = serializer.save()
+        if episode.content_type == 'quiz' and not hasattr(episode, 'quiz'):
+            Quiz.objects.create(
+                episode=episode,
+                title=f"Quiz for {episode.title}",
+                description="Please update this quiz description.",
+                passing_score=80
+            )
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
@@ -122,6 +416,32 @@ class QuizViewSet(viewsets.ModelViewSet):
         if self.action == 'submit':
             return [permissions.IsAuthenticated()]
         return [IsContentManager()]
+        
+    def get_serializer_class(self):
+        if self.request and self.request.user and self.request.user.is_authenticated and (self.request.user.is_superuser or self.request.user.can_manage_public_content):
+            if self.action in ['retrieve', 'list', 'admin_details', 'update', 'partial_update', 'create']:
+                from .serializers import AdminQuizSerializer
+                return AdminQuizSerializer
+        return super().get_serializer_class()
+
+    @action(detail=True, methods=['get'])
+    def admin_details(self, request, pk=None):
+        quiz = self.get_object()
+        from .serializers import AdminQuizSerializer
+        serializer = AdminQuizSerializer(quiz)
+        return Response(serializer.data)
+
+class QuizQuestionViewSet(viewsets.ModelViewSet):
+    queryset = QuizQuestion.objects.all()
+    permission_classes = [IsContentManager]
+    from .serializers import AdminQuizQuestionSerializer
+    serializer_class = AdminQuizQuestionSerializer
+
+class QuizAnswerViewSet(viewsets.ModelViewSet):
+    queryset = QuizAnswer.objects.all()
+    permission_classes = [IsContentManager]
+    from .serializers import AdminQuizAnswerSerializer
+    serializer_class = AdminQuizAnswerSerializer
 
     @action(detail=True, methods=['post'])
     def submit(self, request, pk=None):

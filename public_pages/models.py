@@ -116,3 +116,26 @@ class UserQuizAttempt(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.quiz.title} - Score: {self.score_percentage}%"
+
+class CertificateSettings(models.Model):
+    background_image = models.ImageField(upload_to='certificates/', blank=True, null=True, help_text="Background artistic image for certificates")
+    signature_image = models.ImageField(upload_to='certificates/', blank=True, null=True, help_text="Signature image for Chief Internal Auditor")
+    chief_auditor_name = models.CharField(max_length=255, default="Chief Internal Auditor")
+    organization_name = models.CharField(max_length=255, default="Coop Bank Internal Audit Excellence Center")
+    motto = models.CharField(max_length=255, blank=True, null=True, help_text="e.g. Excellence in Auditing")
+    tagline = models.CharField(max_length=255, blank=True, null=True, help_text="e.g. Empowering Trust")
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass # Prevent deletion
+
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Certificate Settings"
