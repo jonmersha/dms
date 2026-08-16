@@ -124,6 +124,7 @@ STATICFILES_DIRS = [
 ]
 
 WHITENOISE_ROOT = BASE_DIR / 'front'
+WHITENOISE_AUTOREFRESH = True
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

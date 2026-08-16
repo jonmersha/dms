@@ -35,7 +35,7 @@ urlpatterns = [
     path('media/<path:file_path>', protected_media_view, name='protected_media'),
     
     # Catch-all route for React SPA (exclude backend routes so APPEND_SLASH works)
-    re_path(r'^(?!api/|admin|auth|documents|media).*$', TemplateView.as_view(template_name='index.html')),
+    re_path(r'^(?!api/|admin|auth|documents|media|assets).*$', TemplateView.as_view(template_name='index.html')),
 ]
 
 if settings.DEBUG:
