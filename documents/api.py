@@ -7,7 +7,7 @@ from django.http import FileResponse, Http404
 import os
 from django.utils import timezone
 from .models import Document, TemporaryAccess, DocumentAuditLog, BackupOperation, Announcement
-from .serializers import DocumentSerializer, TemporaryAccessSerializer, BackupOperationSerializer, AnnouncementSerializer
+from .serializers import DocumentSerializer, TemporaryAccessSerializer, BackupOperationSerializer, AnnouncementSerializer, PublicDocumentSerializer
 from rest_framework.exceptions import PermissionDenied
 from .permissions import CanViewDocument, CanEditDocument, CanManageDocument, CanDeleteDocument, CanDownloadDocument
 from .services.audit_service import log_document_event
@@ -91,9 +91,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
         access_reqs = TemporaryAccess.objects.filter(status='PENDING').order_by('-created_at')
         
         departments = Department.objects.annotate(
-            total_docs=Count('documents'),
-            pending_docs=Count('documents', filter=Q(documents__status='PENDING_APPROVAL')),
-            approved_docs=Count('documents', filter=Q(documents__status='APPROVED'))
+            total_docs=Count('owned_documents'),
+            pending_docs=Count('owned_documents', filter=Q(owned_documents__status='PENDING_APPROVAL')),
+            approved_docs=Count('owned_documents', filter=Q(owned_documents__status='APPROVED'))
         ).values('id', 'name', 'level', 'total_docs', 'pending_docs', 'approved_docs')
         
         return Response({
@@ -114,9 +114,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
+        category = self.request.data.get('category', 'AUDIT_REPORTS')
+        # Non-report categories are public by default (no need to mark restricted)
+        is_report = (category == 'AUDIT_REPORTS')
+        restricted = serializer.validated_data.get('restricted', is_report)
         doc = serializer.save(
             uploaded_by=user,
-            department=user.department
+            department=user.department,
+            restricted=restricted if is_report else False,
         )
         if user.role in ['CHIEF', 'DIRECTOR']:
             doc.status = 'APPROVED'
@@ -673,7 +678,7 @@ class PublicDocumentViewSet(viewsets.ReadOnlyModelViewSet):
     Public read-only endpoint for non-restricted, APPROVED documents.
     No authentication required — used by the public Publications / Internal Standards page.
     """
-    serializer_class = DocumentSerializer
+    serializer_class = PublicDocumentSerializer
     permission_classes = []  # No auth required
     authentication_classes = []  # Skip JWT parsing for this endpoint
 

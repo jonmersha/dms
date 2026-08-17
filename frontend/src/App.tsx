@@ -14,13 +14,13 @@ import { Learning } from './pages/public/Learning';
 import { AdminContent } from './pages/admin/AdminContent';
 import { AdminLearning } from './pages/admin/AdminLearning';
 import { Publications } from './pages/public/Publications';
-import { Associations } from './pages/public/Associations';
 import { QualityManagement } from './pages/public/QualityManagement';
 import { Performance } from './pages/public/Performance';
 import { AdminDepartments } from './pages/admin/AdminDepartments';
 import { AdminPeriods } from './pages/admin/AdminPeriods';
 import { AdminUsers } from './pages/admin/AdminUsers';
 import { AdminAuditLogs } from './pages/admin/AdminAuditLogs';
+import { PerformancePlansManager } from './pages/dashboards/PerformancePlansManager';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminAnnouncements } from './pages/admin/AdminAnnouncements';
 import { BackupRestore } from './pages/admin/BackupRestore';
@@ -121,14 +121,7 @@ function App() {
             </Layout>
           } 
         />
-        <Route 
-          path="/associations" 
-          element={
-            <Layout>
-              <Associations />
-            </Layout>
-          } 
-        />
+
         <Route 
           path="/quality" 
           element={
@@ -172,7 +165,7 @@ function App() {
         <Route 
           path="/system/learning" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['CHIEF', 'DIRECTOR', 'TEAM_MANAGER', 'ADMIN']}>
               <AdminLearning />
             </ProtectedRoute>
           } 
@@ -254,6 +247,10 @@ function App() {
         <Route 
           path="/system/logs" 
           element={<ProtectedRoute requireAdmin><AdminAuditLogs /></ProtectedRoute>} 
+        />
+        <Route 
+          path="/dashboard/performance-plans" 
+          element={<ProtectedRoute allowedRoles={['DIRECTOR', 'CHIEF', 'ADMIN']}><PerformancePlansManager /></ProtectedRoute>} 
         />
         <Route 
           path="/system/announcements" 

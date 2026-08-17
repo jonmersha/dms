@@ -75,7 +75,8 @@ class LearningPlaylistSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LearningPlaylist
-        fields = ['id', 'title', 'description', 'main_url', 'playlist_id', 'order', 'episodes', 'created_at', 'updated_at', 'is_enrolled', 'progress_percentage']
+        fields = ['id', 'title', 'description', 'main_url', 'playlist_id', 'order', 'episodes', 'created_at', 'updated_at', 'is_enrolled', 'progress_percentage', 'created_by']
+        read_only_fields = ['created_by']
 
     def get_is_enrolled(self, obj):
         request = self.context.get('request')

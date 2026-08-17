@@ -61,6 +61,20 @@ function StandardDashboard({ user }: { user: any }) {
                   </p>
                 </div>
               </div>
+              <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 sm:col-span-2 lg:col-span-4">
+                <div className="flex items-center">
+                  <div className="rounded-md bg-indigo-100 p-3 text-indigo-600">
+                    <FileText size={24} />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Learning & Courses</p>
+                    <p className="text-sm text-gray-900">Create and manage learning courses and playlists for the team.</p>
+                  </div>
+                </div>
+                <Link to="/system/learning" className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-md hover:bg-indigo-100 transition-colors">
+                  Manage Courses
+                </Link>
+              </div>
             </>
           )}
 
@@ -84,6 +98,36 @@ function StandardDashboard({ user }: { user: any }) {
                   <p className="text-sm font-medium text-gray-500">Pending My Approval</p>
                   <p className="text-2xl font-semibold text-gray-900">{stats.pending}</p>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 sm:col-span-2 lg:col-span-4">
+                <div className="flex items-center">
+                  <div className="rounded-md bg-purple-100 p-3 text-purple-600">
+                    <FileText size={24} />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Department Performance & Plans</p>
+                    <p className="text-sm text-gray-900">Register strategic plans and performance metrics for the public site.</p>
+                  </div>
+                </div>
+                <Link to="/dashboard/performance-plans" className="px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-md hover:bg-blue-100 transition-colors">
+                  Manage Plans
+                </Link>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 sm:col-span-2 lg:col-span-4">
+                <div className="flex items-center">
+                  <div className="rounded-md bg-indigo-100 p-3 text-indigo-600">
+                    <FileText size={24} />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Learning & Courses</p>
+                    <p className="text-sm text-gray-900">Create and manage learning courses and playlists for the organization.</p>
+                  </div>
+                </div>
+                <Link to="/system/learning" className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-md hover:bg-indigo-100 transition-colors">
+                  Manage Courses
+                </Link>
               </div>
             </>
           )}

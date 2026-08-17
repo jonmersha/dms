@@ -13,8 +13,10 @@ from .managers import DocumentQuerySet
 
 
 def pdf_upload_path(instance, filename):
-    """Generate upload path: reports/{category}/{fiscal_year}/{quarter}/{filename}"""
-    return f"reports/{instance.category}/{instance.audit_period.fiscal_year}/{instance.quarter}/{filename}"
+    """Generate upload path. Reports go in a structured path; generic docs go in /generic/category/."""
+    if instance.category == 'AUDIT_REPORTS' and instance.audit_period and instance.quarter:
+        return f"reports/{instance.category}/{instance.audit_period.fiscal_year}/{instance.quarter}/{filename}"
+    return f"documents/{instance.category}/{filename}"
 
 class Document(models.Model):
     # Audit Types
@@ -75,14 +77,19 @@ class Document(models.Model):
     
     audit_period = models.ForeignKey(
         AuditPeriod,
-        on_delete=models.CASCADE,
-        related_name='documents'
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='documents',
+        help_text="Required for Audit Reports only"
     )
     
     quarter = models.CharField(
         max_length=2,
         choices=QUARTER_CHOICES,
-        help_text="Select the quarter for this document"
+        blank=True,
+        null=True,
+        help_text="Required for Audit Reports only"
     )
     
     uploaded_by = models.ForeignKey(
@@ -157,29 +164,29 @@ class Document(models.Model):
     class Meta:
         verbose_name = 'Document'
         verbose_name_plural = 'Documents'
-        ordering = ['-category', '-audit_period__fiscal_year', '-quarter', '-created_at']
+        ordering = ['-created_at', '-category']
 
     def __str__(self):
         return f"{self.title} - {self.get_category_display()}"
 
     def clean(self):
         """Validate document data"""
-        if not self.audit_period:
-            raise ValidationError({'audit_period': 'Audit period is required.'})
-        
-        if not self.quarter:
-            raise ValidationError({'quarter': 'Quarter is required.'})
-        
-        if not self.audit_period.is_active:
-            raise ValidationError({'audit_period': 'Cannot upload to inactive audit periods.'})
-        
-        # Audit type is required only for audit reports
-        if self.category == 'AUDIT_REPORTS' and not self.audit_type:
-            raise ValidationError({'audit_type': 'Audit type is required for audit reports.'})
-        
-        # Audit type should be empty for non-audit reports
-        if self.category != 'AUDIT_REPORTS' and self.audit_type:
-            raise ValidationError({'audit_type': 'Audit type should only be selected for audit reports.'})
+        is_report = (self.category == 'AUDIT_REPORTS')
+
+        if is_report:
+            # Audit Reports must have period, quarter, and audit type
+            if not self.audit_period:
+                raise ValidationError({'audit_period': 'Audit period is required for audit reports.'})
+            if not self.quarter:
+                raise ValidationError({'quarter': 'Quarter is required for audit reports.'})
+            if self.audit_period and not self.audit_period.is_active:
+                raise ValidationError({'audit_period': 'Cannot upload to inactive audit periods.'})
+            if not self.audit_type:
+                raise ValidationError({'audit_type': 'Audit type is required for audit reports.'})
+        else:
+            # Generic documents must NOT have audit-specific fields
+            if self.audit_type:
+                raise ValidationError({'audit_type': 'Audit type should only be selected for audit reports.'})
 
     def save(self, *args, **kwargs):
         if not self.department and self.uploaded_by and getattr(self.uploaded_by, 'department', None):
@@ -200,6 +207,16 @@ class Document(models.Model):
     def can_download(self, user):
         """Check if user can download this document"""
         from django.utils import timezone
+
+        # Anonymous users: only allow unrestricted, approved, public docs
+        if not getattr(user, 'is_authenticated', False):
+            return (
+                not self.restricted
+                and not self.download_restricted
+                and self.status == 'APPROVED'
+                and not self.is_deleted
+            )
+
         # 1. Admin/Superuser cannot download any documents
         if getattr(user, 'is_superuser', False) or getattr(user, 'role', None) == 'ADMIN':
             return False
@@ -207,6 +224,7 @@ class Document(models.Model):
         # 2. Must have VIEW permission first (authentication, status, etc)
         if not Document.objects.filter(id=self.id).accessible_by(user).exists():
             return False
+
             
         # 3. Chiefs and Owners bypass download restrictions
         if getattr(user, 'role', None) == 'CHIEF':
@@ -292,7 +310,8 @@ class Document(models.Model):
         """Check if user can hard-delete this document"""
         return user.is_authenticated and (
             user == self.uploaded_by or 
-            user.is_superuser
+            user.is_superuser or
+            getattr(user, 'role', None) == 'CHIEF'
         )
         
     def can_request_deletion(self, user):

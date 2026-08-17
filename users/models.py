@@ -116,4 +116,19 @@ class UserAuditLog(models.Model):
     def __str__(self):
         return f"{self.target_user.username} - {self.action} at {self.timestamp}"
 
+class DepartmentPerformancePlan(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='performance_plans')
+    year = models.IntegerField()
+    long_term_plan = models.TextField(blank=True, null=True, help_text="Long-term strategic vision and plan.")
+    short_term_plan = models.TextField(blank=True, null=True, help_text="Short-term objectives and execution plan.")
+    performance_execution = models.TextField(blank=True, null=True, help_text="Detailed achievements and execution metrics.")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_performance_plans')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ['-year', 'department__name']
+        unique_together = ['department', 'year']
+
+    def __str__(self):
+        return f"{self.department.name} - Plan {self.year}"

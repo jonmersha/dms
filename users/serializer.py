@@ -231,3 +231,18 @@ class AdminUserSerializer(serializers.ModelSerializer):
                 notes="Admin changed password."
             )
         return user
+
+from .models import DepartmentPerformancePlan
+
+class DepartmentPerformancePlanSerializer(serializers.ModelSerializer):
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+
+    class Meta:
+        model = DepartmentPerformancePlan
+        fields = [
+            'id', 'department', 'department_name', 'year',
+            'long_term_plan', 'short_term_plan', 'performance_execution',
+            'created_by', 'created_by_name', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_at', 'updated_at']

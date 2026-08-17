@@ -29,19 +29,7 @@ export function PublicNavbar() {
               <Link to="/" className="hover:text-blue-200 transition-colors">Home</Link>
               <Link to="/learning" className="hover:text-blue-200 transition-colors">Learning</Link>
               
-              <div className="relative group">
-                <button className="flex items-center gap-1 hover:text-blue-200 transition-colors py-2">
-                  Publications <ChevronDown size={14} />
-                </button>
-                <div className="absolute left-0 top-full mt-1 w-56 rounded-md bg-white text-gray-800 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 py-1">
-                  <Link to="/publications#charter" className="block px-4 py-2 hover:bg-gray-100 text-sm">Charter</Link>
-                  <Link to="/publications#guidelines" className="block px-4 py-2 hover:bg-gray-100 text-sm">Guidelines</Link>
-                  <Link to="/publications#standards" className="block px-4 py-2 hover:bg-gray-100 text-sm">Internal Standards</Link>
-                  <Link to="/publications#guidance" className="block px-4 py-2 hover:bg-gray-100 text-sm">ISACA / GTAG Guidance</Link>
-                </div>
-              </div>
-
-              <Link to="/associations" className="hover:text-blue-200 transition-colors">Associations</Link>
+              <Link to="/publications" className="hover:text-blue-200 transition-colors">Publications</Link>
               <Link to="/quality" className="hover:text-blue-200 transition-colors">Quality Management</Link>
               
               <div className="relative group">

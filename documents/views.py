@@ -3,6 +3,7 @@ from django.http import HttpResponse, Http404, FileResponse, HttpResponseForbidd
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.utils.text import slugify
@@ -347,20 +348,35 @@ class DocumentDownloadView(LoginRequiredMixin, View):
         response['Content-Disposition'] = f'attachment; filename="{os.path.basename(document.pdf_file.name)}"'
         return response
 
+@xframe_options_exempt
 def protected_media_view(request, file_path):
     """
     Intercept direct media requests to enforce document permissions.
+    Public (unrestricted, approved) documents are served without login.
     """
-    from .models import DocumentAccessLog
     
     # Try to find the document by its file path
     document = Document.objects.filter(pdf_file=file_path).first()
     
     if not document:
-        # Not a protected document, or doesn't exist
         raise Http404("File not found")
-        
-    # Check permission using our strict method
+
+    # Fast-path: public documents are served without any auth check
+    is_public = (
+        not document.restricted
+        and not document.download_restricted
+        and document.status == 'APPROVED'
+        and not document.is_deleted
+    )
+    if is_public:
+        try:
+            response = FileResponse(document.pdf_file.open(), content_type='application/pdf')
+            response['Content-Disposition'] = f'inline; filename="{os.path.basename(document.pdf_file.name)}"'
+            return response
+        except Exception:
+            raise Http404("File not found on disk")
+
+    # Restricted documents require authentication + permission
     if not document.can_download(request.user):
         if request.user.is_authenticated:
             from .services import log_document_event

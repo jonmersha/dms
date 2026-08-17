@@ -153,3 +153,38 @@ class UserAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAdminUser]
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'first_name', 'last_name', 'email', 'employee_id', 'phone', 'job_title', 'groups__name', 'department__name']
+
+from .models import DepartmentPerformancePlan
+from .serializer import DepartmentPerformancePlanSerializer
+
+class DepartmentPerformancePlanViewSet(viewsets.ModelViewSet):
+    """
+    API for managing Department Performance Plans.
+    Directors can manage their own department's plans.
+    """
+    queryset = DepartmentPerformancePlan.objects.all().order_by('-year', 'department__name')
+    serializer_class = DepartmentPerformancePlanSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['department__name', 'year']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def check_object_permissions(self, request, obj):
+        super().check_object_permissions(request, obj)
+        if request.method in permissions.SAFE_METHODS:
+            return
+        # Only the director of the department or a superuser can edit
+        if request.user.is_superuser:
+            return
+        if request.user.role == 'CHIEF':
+            return
+        if request.user.department == obj.department and request.user.role == 'DIRECTOR':
+            return
+        self.permission_denied(request, "You do not have permission to modify this department's plan.")
+

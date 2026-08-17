@@ -17,12 +17,21 @@ from rest_framework.parsers import MultiPartParser, FormParser
 class IsContentManager(permissions.BasePermission):
     """
     Custom permission to only allow content managers or superusers to edit.
+    Now allows CHIEF, DIRECTOR, and TEAM_MANAGER to create learning courses.
     """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user and request.user.is_authenticated and (
-            request.user.is_superuser or getattr(request.user, 'can_manage_public_content', False) or getattr(request.user, 'is_staff', False)
+        if not request.user or not request.user.is_authenticated:
+            return False
+            
+        allowed_roles = ['CHIEF', 'DIRECTOR', 'TEAM_MANAGER']
+        
+        return (
+            request.user.is_superuser or 
+            getattr(request.user, 'can_manage_public_content', False) or 
+            getattr(request.user, 'is_staff', False) or
+            (hasattr(request.user, 'role') and request.user.role in allowed_roles)
         )
 
 class CertificateSettingsViewSet(viewsets.ModelViewSet):

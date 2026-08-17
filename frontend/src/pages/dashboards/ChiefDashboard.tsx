@@ -71,7 +71,20 @@ export function ChiefDashboard() {
             </div>
           </div>
 
-
+          <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 lg:col-span-5">
+            <div className="flex items-center">
+              <div className="rounded-md bg-indigo-100 p-3 text-indigo-600">
+                <FileText size={24} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Learning & Courses</p>
+                <p className="text-sm text-gray-900">Create and manage learning courses and playlists for the organization.</p>
+              </div>
+            </div>
+            <Link to="/system/learning" className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-md hover:bg-indigo-100 transition-colors">
+              Manage Courses
+            </Link>
+          </div>
         </div>
       )}
 

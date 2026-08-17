@@ -66,16 +66,27 @@ class DocumentSerializer(serializers.ModelSerializer):
         category = data.get('category', getattr(self.instance, 'category', None))
         audit_type = data.get('audit_type', getattr(self.instance, 'audit_type', None))
         audit_period = data.get('audit_period', getattr(self.instance, 'audit_period', None))
-        
-        if audit_period and not audit_period.is_active:
-            raise serializers.ValidationError({'audit_period': 'Cannot upload to inactive audit periods.'})
-        
-        if category == 'AUDIT_REPORTS' and not audit_type:
-            raise serializers.ValidationError({'audit_type': 'Audit type is required for audit reports.'})
-            
-        if category != 'AUDIT_REPORTS' and audit_type:
-            raise serializers.ValidationError({'audit_type': 'Audit type should only be selected for audit reports.'})
-            
+
+        is_report = (category == 'AUDIT_REPORTS')
+
+        # --- Rules that only apply to Audit Reports ---
+        if is_report:
+            if not audit_period:
+                raise serializers.ValidationError({'audit_period': 'Audit period is required for audit reports.'})
+            if not data.get('quarter', getattr(self.instance, 'quarter', None)):
+                raise serializers.ValidationError({'quarter': 'Quarter is required for audit reports.'})
+            if not audit_type:
+                raise serializers.ValidationError({'audit_type': 'Audit type is required for audit reports.'})
+            if audit_period and not audit_period.is_active:
+                raise serializers.ValidationError({'audit_period': 'Cannot upload to inactive audit periods.'})
+        else:
+            # Non-report categories must NOT have audit-specific fields
+            if audit_type:
+                raise serializers.ValidationError({'audit_type': 'Audit type should only be selected for audit reports.'})
+            # Clear period/quarter for non-reports so they are not stored
+            data.pop('audit_period', None)
+            data.pop('quarter', None)
+
         return data
 
     def get_audit_logs(self, obj):
@@ -110,7 +121,34 @@ class DocumentSerializer(serializers.ModelSerializer):
         
     def get_can_download(self, obj):
         request = self.context.get('request')
-        return obj.can_download(request.user) if request else False
+        if not request:
+            return False
+        user = getattr(request, 'user', None)
+        if not user:
+            return False
+        return obj.can_download(user)
+
+
+class PublicDocumentSerializer(serializers.ModelSerializer):
+    """
+    Lightweight, auth-free serializer for public document listings.
+    Only exposes safe, non-sensitive fields.
+    """
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+    department_name = serializers.CharField(source='department.name', read_only=True)
+    audit_period_name = serializers.CharField(source='audit_period.fiscal_year', read_only=True)
+    quarter_display = serializers.CharField(source='get_quarter_display', read_only=True)
+    audit_type_display = serializers.CharField(source='get_audit_type_display', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
+    class Meta:
+        model = Document
+        fields = [
+            'id', 'title', 'description', 'category', 'category_display',
+            'audit_type', 'audit_type_display', 'audit_period_name',
+            'quarter', 'quarter_display', 'department_name',
+            'uploaded_by_name', 'pdf_file', 'created_at', 'updated_at',
+        ]
 
 class BackupOperationSerializer(serializers.ModelSerializer):
     created_by_details = UserSerializer(source='created_by', read_only=True)

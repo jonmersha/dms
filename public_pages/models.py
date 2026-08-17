@@ -21,6 +21,7 @@ class LearningPlaylist(models.Model):
     main_url = models.URLField(max_length=500, help_text="The main iframe src URL for the playlist or video")
     playlist_id = models.CharField(max_length=100, blank=True, help_text="YouTube Playlist ID for fetching episodes")
     order = models.IntegerField(default=0, help_text="Order in which playlists appear on the page")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_playlists')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
