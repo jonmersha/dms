@@ -58,6 +58,9 @@ class User(AbstractUser):
         if 'Team Manager' in group_names: return 'TEAM_MANAGER'
         if 'Team Member' in group_names: return 'TEAM_MEMBER'
         if 'System Administrator' in group_names: return 'ADMIN'
+        if 'Auditor' in group_names: return 'AUDITOR'
+        if 'Auditee' in group_names: return 'AUDITEE'
+        if 'Visitor' in group_names: return 'VISITOR'
         return None
 
     def clean(self):

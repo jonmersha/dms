@@ -115,7 +115,7 @@ function StandardDashboard({ user }: { user: any }) {
                 <ArchiveRestore size={16} /> Backup & Restore
               </Link>
             )}
-            {user?.role === 'TEAM_MANAGER' && (
+            {['TEAM_MANAGER', 'TEAM_MEMBER', 'DIRECTOR', 'CHIEF', 'ADMIN'].includes(user?.role || '') && (
               <Link
                 to="/documents/new"
                 className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"

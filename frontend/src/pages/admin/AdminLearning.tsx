@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, Save, ListVideo, Video, Settings, PlayCircle } from 'lucide-react';
+import { AlertModal } from '../../components/ui/AlertModal';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import api from '../../api/axios';
 import { AdminQuizManager } from './AdminQuizManager';
 
@@ -55,6 +57,14 @@ export function AdminLearning() {
   const [bgFile, setBgFile] = useState<File | null>(null);
   const [sigFile, setSigFile] = useState<File | null>(null);
 
+  const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'info'}>({ isOpen: false, title: '', message: '', type: 'info' });
+  const [deletePlaylistConfirmId, setDeletePlaylistConfirmId] = useState<number | null>(null);
+  const [deleteEpisodeConfirmId, setDeleteEpisodeConfirmId] = useState<number | null>(null);
+
+  const showAlert = (title: string, message: string, type: 'success'|'error'|'info' = 'info') => {
+    setAlertModal({ isOpen: true, title, message, type });
+  };
+
   useEffect(() => {
     fetchPlaylists();
     fetchCertSettings();
@@ -87,9 +97,9 @@ export function AdminLearning() {
       setIsImportModalOpen(false);
       setImportUrl('');
       fetchPlaylists();
-      alert('Playlist imported successfully!');
+      showAlert('Success', 'Playlist imported successfully!', 'success');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to import playlist');
+      showAlert('Error', err.response?.data?.error || 'Failed to import playlist', 'error');
     } finally {
       setIsImporting(false);
     }
@@ -128,11 +138,11 @@ export function AdminLearning() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      alert('Certificate settings saved successfully!');
+      showAlert('Success', 'Certificate settings saved successfully!', 'success');
       setIsCertSettingsModalOpen(false);
       fetchCertSettings();
     } catch (err) {
-      alert('Failed to save certificate settings');
+      showAlert('Error', 'Failed to save certificate settings', 'error');
     }
   };
 
@@ -147,21 +157,24 @@ export function AdminLearning() {
       setIsPlaylistModalOpen(false);
       fetchPlaylists();
     } catch (err) {
-      alert('Failed to save playlist');
+      showAlert('Error', 'Failed to save playlist', 'error');
     }
   };
 
-  const handleDeletePlaylist = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this playlist? This will delete all its episodes.')) {
-      try {
-        await api.delete(`/api/public-pages/learning-playlists/${id}/`);
-        if (selectedPlaylistDetails?.id === id) {
-          setSelectedPlaylistDetails(null);
-        }
-        fetchPlaylists(false);
-      } catch (err) {
-        alert('Failed to delete playlist');
+  const handleDeletePlaylist = (id: number) => {
+    setDeletePlaylistConfirmId(id);
+  };
+
+  const confirmDeletePlaylist = async (id: number) => {
+    try {
+      await api.delete(`/api/public-pages/learning-playlists/${id}/`);
+      if (selectedPlaylistDetails?.id === id) {
+        setSelectedPlaylistDetails(null);
       }
+      fetchPlaylists(false);
+      showAlert('Success', 'Playlist deleted successfully', 'success');
+    } catch (err) {
+      showAlert('Error', 'Failed to delete playlist', 'error');
     }
   };
 
@@ -183,18 +196,21 @@ export function AdminLearning() {
       setIsEpisodeModalOpen(false);
       fetchPlaylists(); // Will automatically update the details modal
     } catch (err) {
-      alert('Failed to save episode');
+      showAlert('Error', 'Failed to save episode', 'error');
     }
   };
 
-  const handleDeleteEpisode = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this episode?')) {
-      try {
-        await api.delete(`/api/public-pages/learning-episodes/${id}/`);
-        fetchPlaylists(); // Will automatically update the details modal
-      } catch (err) {
-        alert('Failed to delete episode');
-      }
+  const handleDeleteEpisode = (id: number) => {
+    setDeleteEpisodeConfirmId(id);
+  };
+
+  const confirmDeleteEpisode = async (id: number) => {
+    try {
+      await api.delete(`/api/public-pages/learning-episodes/${id}/`);
+      fetchPlaylists(); // Will automatically update the details modal
+      showAlert('Success', 'Episode deleted successfully', 'success');
+    } catch (err) {
+      showAlert('Error', 'Failed to delete episode', 'error');
     }
   };
 
@@ -821,6 +837,42 @@ export function AdminLearning() {
           </div>
         </div>
       )}
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+      
+      <ConfirmModal
+        isOpen={deletePlaylistConfirmId !== null}
+        onClose={() => setDeletePlaylistConfirmId(null)}
+        onConfirm={() => {
+          if (deletePlaylistConfirmId !== null) {
+            confirmDeletePlaylist(deletePlaylistConfirmId);
+            setDeletePlaylistConfirmId(null);
+          }
+        }}
+        title="Delete Playlist"
+        message="Are you sure you want to delete this playlist? This will delete all its episodes."
+        confirmText="Delete"
+      />
+
+      <ConfirmModal
+        isOpen={deleteEpisodeConfirmId !== null}
+        onClose={() => setDeleteEpisodeConfirmId(null)}
+        onConfirm={() => {
+          if (deleteEpisodeConfirmId !== null) {
+            confirmDeleteEpisode(deleteEpisodeConfirmId);
+            setDeleteEpisodeConfirmId(null);
+          }
+        }}
+        title="Delete Episode"
+        message="Are you sure you want to delete this episode?"
+        confirmText="Delete"
+      />
     </div>
   );
 }

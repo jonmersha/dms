@@ -67,7 +67,8 @@ class UserSerializer(BaseUserSerializer):
         return ', '.join(obj.groups.values_list('name', flat=True))
 
     def get_role(self, obj):
-        return self.get_role_display(obj)
+        # Return the internal role code (e.g. 'TEAM_MANAGER') used for permission checks
+        return obj.role  # Uses the User.role property which maps group names to codes
 
     def get_permissions(self, obj):
         from django.contrib.auth.models import Permission

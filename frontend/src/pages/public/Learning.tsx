@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PlayCircle, X, BookOpen, Clock, Video, ListVideo, FileText, CheckCircle, HelpCircle, Download } from 'lucide-react';
 import { usePublicContent } from '../../hooks/usePublicContent';
 import { useAuth } from '../../contexts/AuthContext';
+import { AlertModal } from '../../components/ui/AlertModal';
 import YouTube from 'react-youtube';
 import api from '../../api/axios';
 
@@ -62,6 +63,11 @@ export function Learning() {
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [autoPlayNext, setAutoPlayNext] = useState(true);
 
+  const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'info'}>({ isOpen: false, title: '', message: '', type: 'info' });
+  const showAlert = (title: string, message: string, type: 'success'|'error'|'info' = 'info') => {
+    setAlertModal({ isOpen: true, title, message, type });
+  };
+
   useEffect(() => {
     fetchPlaylists();
   }, [user]); // Refetch when auth state changes to get enrollment status
@@ -103,7 +109,7 @@ export function Learning() {
   const handleEnroll = async (e: React.MouseEvent, playlistId: number) => {
     e.stopPropagation(); // Prevent opening modal
     if (!user) {
-      alert("Please log in to subscribe to this course.");
+      showAlert("Authentication Required", "Please log in to subscribe to this course.", "info");
       return;
     }
     try {
@@ -136,7 +142,7 @@ export function Learning() {
       setCertificatePreview({ url, playlistId });
     } catch (error) {
       console.error("Failed to load certificate preview:", error);
-      alert("Failed to load certificate. Make sure you have completed the course.");
+      showAlert("Error", "Failed to load certificate. Make sure you have completed the course.", "error");
     }
   };
 
@@ -159,7 +165,7 @@ export function Learning() {
 
   const handleMarkComplete = async (episodeId: number) => {
     if (!user) {
-      alert("Please log in to track your progress.");
+      showAlert("Authentication Required", "Please log in to track your progress.", "info");
       return;
     }
     try {
@@ -258,7 +264,7 @@ export function Learning() {
         if (updatedEp) setCurrentEpisode(updatedEp);
       }
     } catch (e) {
-      alert("Failed to submit quiz.");
+      showAlert("Error", "Failed to submit quiz.", "error");
     } finally {
       setSubmittingQuiz(false);
     }
@@ -774,6 +780,14 @@ export function Learning() {
           </div>
         </div>
       )}
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, Home, Shield, Settings, FileText, Trash2, Building2, Users, Activity, Calendar, User, Newspaper, ChevronDown, ListVideo } from 'lucide-react';
 
+function isSuperAdmin(user: { is_superuser: boolean; role: string }) {
+  return user.is_superuser || user.role === 'ADMIN';
+}
+
 export function SystemNavbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -27,7 +31,8 @@ export function SystemNavbar() {
             
             {user && (
               <div className="hidden md:flex space-x-4">
-                {(user.role !== 'AUDITEE' && user.role !== 'VISITOR' && user.role !== 'ADMIN' && !user.is_superuser) && (
+                {/* Non-admin users: show standard dashboard/documents links */}
+                {!isSuperAdmin(user) && user.role !== 'AUDITEE' && user.role !== 'VISITOR' && (
                   <>
                     <Link to="/dashboard" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
                       <Home size={18} /> Dashboard
@@ -38,7 +43,8 @@ export function SystemNavbar() {
                   </>
                 )}
                 
-                {(user.is_staff || user.is_superuser) && user.role !== 'TEAM_MANAGER' && (
+                {/* Super Admin system links */}
+                {user && isSuperAdmin(user) && (
                   <>
                     <Link to="/system/dashboard" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
                       <Settings size={18} /> Dashboard
@@ -69,17 +75,12 @@ export function SystemNavbar() {
                       </>
                     )}
                     
-                    {user.is_superuser && (
-                      <Link 
-                        to="/system/users" 
-                        className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    <Link to="/system/users" className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                           location.pathname === '/system/users' ? 'bg-blue-800 text-white' : 'hover:bg-blue-600 hover:text-white text-blue-100'
-                        }`}
-                      >
+                        }`}>
                         <Users size={18} />
                         Users
                       </Link>
-                    )}
                     <Link to="/system/logs" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
                       <Activity size={18} /> Logs
                     </Link>
@@ -102,7 +103,7 @@ export function SystemNavbar() {
             {user ? (
               <>
                 <div className="flex items-center gap-2">
-                  {(user.role !== 'AUDITEE' && user.role !== 'VISITOR' && user.role !== 'ADMIN' && !user.is_superuser) && (
+                  {(!isSuperAdmin(user) && user.role !== 'AUDITEE' && user.role !== 'VISITOR') && (
                     <Link 
                       to="/recycle-bin"
                       title="Recycle Bin"

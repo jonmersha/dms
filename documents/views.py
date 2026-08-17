@@ -139,8 +139,9 @@ class DocumentCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     login_url = '/login/'
     
     def test_func(self):
-        # Allow staff or Team Managers to create documents
-        return self.request.user.is_staff or getattr(self.request.user, 'role', None) == 'TEAM_MANAGER'
+        # Allow staff, Directors, Team Managers, and Team Members to create documents
+        role = getattr(self.request.user, 'role', None)
+        return self.request.user.is_staff or role in ['DIRECTOR', 'TEAM_MANAGER', 'TEAM_MEMBER']
     
     def handle_no_permission(self):
         messages.error(self.request, "You do not have permission to upload documents.")

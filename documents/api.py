@@ -404,9 +404,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
             
         target_user = get_object_or_404(User, pk=request.data.get('user'))
         
-        # Team Managers can only request access for Auditees and Visitors
-        if request.user.role == 'TEAM_MANAGER' and target_user.role not in ['AUDITEE', 'VISITOR']:
-            return Response({'error': 'Team Managers can only grant access to Auditees and Visitors'}, status=status.HTTP_400_BAD_REQUEST)
+        # Team Managers can only request access for Auditors, Auditees and Visitors
+        if request.user.role == 'TEAM_MANAGER' and target_user.role not in ['AUDITOR', 'AUDITEE', 'VISITOR']:
+            return Response({'error': 'Team Managers can only grant access to Auditors, Auditees and Visitors'}, status=status.HTTP_400_BAD_REQUEST)
             
         # Manually validate since we're not in a ModelViewSet for TemporaryAccess
         serializer = TemporaryAccessSerializer(data=request.data)
@@ -666,3 +666,27 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
         if getattr(self.request.user, 'role', None) not in ['CHIEF', 'DIRECTOR']:
             raise PermissionDenied("Only Chief or Director can delete announcements.")
         instance.delete()
+
+
+class PublicDocumentViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public read-only endpoint for non-restricted, APPROVED documents.
+    No authentication required — used by the public Publications / Internal Standards page.
+    """
+    serializer_class = DocumentSerializer
+    permission_classes = []  # No auth required
+    authentication_classes = []  # Skip JWT parsing for this endpoint
+
+    def get_queryset(self):
+        qs = Document.objects.filter(
+            restricted=False,
+            status='APPROVED',
+            is_deleted=False
+        ).select_related('department', 'uploaded_by', 'audit_period').prefetch_related('versions').order_by('-created_at')
+
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
+
+        return qs
+

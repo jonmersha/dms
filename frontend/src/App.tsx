@@ -33,17 +33,33 @@ import { PasswordResetRequest } from './pages/auth/PasswordResetRequest';
 import { PasswordResetConfirm } from './pages/auth/PasswordResetConfirm';
 import { Profile } from './pages/Profile';
 
+// A user is a Super Admin if they are a Django superuser OR belong to the System Administrator group
+function isSuperAdmin(user: { is_superuser: boolean; role: string }) {
+  return user.is_superuser || user.role === 'ADMIN';
+}
+
 function ProtectedRoute({ children, allowedRoles, requireAdmin }: { children: React.ReactNode, allowedRoles?: string[], requireAdmin?: boolean }) {
   const { user, loading } = useAuth();
 
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
   if (!user) return <Navigate to="/login" />;
   
-  if (allowedRoles && !allowedRoles.includes(user.role) && !user.is_superuser && !user.is_staff) {
+  // Super Admins bypass all role restrictions
+  if (isSuperAdmin(user)) {
+    return (
+      <div className="flex min-h-screen flex-col bg-gray-50">
+        <SystemNavbar />
+        <main className="flex-1">{children}</main>
+      </div>
+    );
+  }
+  
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" />;
   }
   
-  if (requireAdmin && !user.is_staff && !user.is_superuser) {
+  // System-only routes (departments, users, roles, etc.) require Super Admin
+  if (requireAdmin) {
     return <Navigate to="/" />;
   }
 
@@ -58,7 +74,7 @@ function ProtectedRoute({ children, allowedRoles, requireAdmin }: { children: Re
 function HomeRedirector() {
   const { user } = useAuth();
   
-  if (user?.is_staff || user?.is_superuser) {
+  if (user && isSuperAdmin(user)) {
     return <Navigate to="/system/dashboard" replace />;
   }
   
@@ -164,7 +180,7 @@ function App() {
         <Route 
           path="/documents/new" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['TEAM_MANAGER', 'TEAM_MEMBER', 'DIRECTOR', 'CHIEF', 'ADMIN']}>
               <UploadDocument />
             </ProtectedRoute>
           } 
@@ -180,7 +196,7 @@ function App() {
         <Route 
           path="/documents/:id/edit" 
           element={
-            <ProtectedRoute allowedRoles={['TEAM_MANAGER']}>
+            <ProtectedRoute allowedRoles={['TEAM_MANAGER', 'TEAM_MEMBER', 'DIRECTOR', 'CHIEF', 'ADMIN']}>
               <EditDocument />
             </ProtectedRoute>
           } 

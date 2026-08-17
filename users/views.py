@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .serializer import AdminUserSerializer, DepartmentSerializer
 from .models import User, Department
-from .permissions import UserManagementPermission
+from .permissions import SuperAdminPermission
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -11,44 +11,27 @@ class UserViewSet(viewsets.ModelViewSet):
     ViewSet for managing users via the Admin Panel.
     """
     serializer_class = AdminUserSerializer
-    permission_classes = [UserManagementPermission]
+    permission_classes = [SuperAdminPermission]
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'first_name', 'last_name', 'email', 'employee_id', 'phone', 'job_title', 'groups__name', 'department__name']
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = User.objects.all().order_by('-date_joined')
-        
-        if user.is_superuser:
-            return queryset
-            
-        user_groups = user.groups.values_list('name', flat=True)
-        
-        if 'System Administrator' in user_groups or 'Chief' in user_groups or 'Auditor' in user_groups:
-            return queryset
-            
-        if 'Director' in user_groups or 'Team Manager' in user_groups:
-            if user.department:
-                # Can only see users in their own department/team hierarchy
-                sub_depts = [d.id for d in user.department.get_all_sub_departments()]
-                return queryset.filter(department__in=sub_depts)
-            return queryset.none()
-            
-        return queryset.none()
+        # Only Super Admins can reach this endpoint, so return all users
+        return User.objects.all().order_by('-date_joined')
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.is_active:
-            instance.is_active = False
-            instance.save()
-            
-            from .models import UserAuditLog
-            UserAuditLog.objects.create(
-                target_user=instance,
-                performed_by=request.user,
-                action='SUSPENDED',
-                notes="User soft-deleted (deactivated) to preserve audit trails."
-            )
+        
+        # Log the deletion before actually deleting
+        from .models import UserAuditLog
+        UserAuditLog.objects.create(
+            target_user=instance,
+            performed_by=request.user,
+            action='SUSPENDED', # or 'DELETED' if added to choices
+            notes=f"User {instance.username} was permanently deleted."
+        )
+        
+        instance.delete()
             
         from rest_framework.response import Response
         from rest_framework import status
@@ -124,8 +107,9 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
+            # Departments list is public so dropdown selectors work for all users
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [SuperAdminPermission()]
 
 from .serializer import UserSerializer
 
@@ -149,8 +133,9 @@ class RoleViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
+            # Role list is public so the user form dropdowns work for all authenticated users
             return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
+        return [SuperAdminPermission()]
 
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permission.objects.all().order_by('content_type__app_label', 'codename')

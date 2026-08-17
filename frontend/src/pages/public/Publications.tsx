@@ -1,6 +1,163 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { BookOpen, Scale, FileCheck, Library } from 'lucide-react';
+import { BookOpen, Scale, FileCheck, Library, FileText, Download, Eye, Calendar, Tag, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config';
+
+// Document type returned by the public API
+interface PublicDocument {
+  id: number;
+  title: string;
+  description: string | null;
+  category: string;
+  category_display?: string;
+  audit_period_name: string;
+  quarter_display: string;
+  department_name: string | null;
+  created_at: string;
+  pdf_file: string;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  AUDIT_REPORTS: 'Audit Reports',
+  GUIDELINES: 'Guidelines',
+  CHARTERS: 'Charters',
+  FRAMEWORKS: 'Frameworks',
+  POLICIES: 'Policies',
+  PROCEDURES: 'Procedures',
+  MANUALS: 'Manuals',
+  TEMPLATES: 'Templates',
+  OTHER: 'Other Documents',
+};
+
+function PublicDocumentCard({ doc }: { doc: PublicDocument }) {
+  const viewUrl = doc.pdf_file.startsWith('http') ? doc.pdf_file : `${API_BASE_URL}${doc.pdf_file}`;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex-shrink-0 rounded-lg bg-blue-50 p-3">
+        <FileText size={28} className="text-blue-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="font-semibold text-gray-900 truncate">{doc.title}</h4>
+        {doc.description && (
+          <p className="mt-1 text-sm text-gray-500 line-clamp-2">{doc.description}</p>
+        )}
+        <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
+          {doc.department_name && (
+            <span className="inline-flex items-center gap-1">
+              <Tag size={12} /> {doc.department_name}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1">
+            <Calendar size={12} /> {doc.audit_period_name} &mdash; {doc.quarter_display}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-blue-700 font-medium">
+            {CATEGORY_LABELS[doc.category] ?? doc.category}
+          </span>
+        </div>
+      </div>
+      <div className="flex gap-2 flex-shrink-0">
+        <a
+          href={viewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <Eye size={14} /> View
+        </a>
+        <a
+          href={viewUrl}
+          download
+          className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+        >
+          <Download size={14} /> Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function InternalStandardsTab() {
+  const [documents, setDocuments] = useState<PublicDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+
+  const categories = [
+    { value: '', label: 'All Documents' },
+    { value: 'GUIDELINES', label: 'Guidelines' },
+    { value: 'CHARTERS', label: 'Charters' },
+    { value: 'FRAMEWORKS', label: 'Frameworks' },
+    { value: 'POLICIES', label: 'Policies' },
+    { value: 'PROCEDURES', label: 'Procedures' },
+    { value: 'MANUALS', label: 'Manuals' },
+    { value: 'TEMPLATES', label: 'Templates' },
+    { value: 'AUDIT_REPORTS', label: 'Audit Reports' },
+    { value: 'OTHER', label: 'Other Documents' },
+  ];
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const params: Record<string, string> = {};
+        if (selectedCategory) params.category = selectedCategory;
+        const res = await axios.get(`${API_BASE_URL}/api/public/documents/`, { params });
+        const data = Array.isArray(res.data) ? res.data : (res.data as any).results ?? [];
+        setDocuments(data);
+      } catch {
+        setError('Failed to load documents. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDocs();
+  }, [selectedCategory]);
+
+  return (
+    <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-3xl font-bold text-gray-900">Internal Standards</h2>
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          {categories.map(c => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <p className="mb-6 text-gray-600">
+        We conform strictly to the International Standards for the Professional Practice of Internal Auditing (Standards)
+        promulgated by the Institute of Internal Auditors (IIA). The following documents are publicly available.
+      </p>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-gray-500">
+          <Loader2 size={24} className="animate-spin mr-2" /> Loading documents...
+        </div>
+      ) : error ? (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-6 text-red-700 text-sm">{error}</div>
+      ) : documents.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center text-gray-500">
+          <FileText size={40} className="mx-auto mb-3 text-gray-300" />
+          <p className="font-medium">No public documents available{selectedCategory ? ` in this category` : ''} yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">{documents.length} document{documents.length !== 1 ? 's' : ''} found</p>
+          {documents.map(doc => (
+            <PublicDocumentCard key={doc.id} doc={doc} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Publications() {
   const location = useLocation();
@@ -25,7 +182,7 @@ export function Publications() {
       <div className="bg-slate-900 py-16 text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <h1 className="text-4xl font-extrabold sm:text-5xl">Publications & Standards</h1>
+            <h1 className="text-4xl font-extrabold sm:text-5xl">Publications &amp; Standards</h1>
             <p className="mt-4 text-xl text-slate-300">
               Access the foundational documents that govern our internal audit practices, methodologies, and ethical requirements.
             </p>
@@ -45,8 +202,8 @@ export function Publications() {
                 }}
                 className={`
                   flex items-center gap-2 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
-                  ${activeTab === tab.id 
-                    ? 'border-blue-600 text-blue-600' 
+                  ${activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600'
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   }
                 `}
@@ -89,7 +246,7 @@ export function Publications() {
                   <p className="text-sm mt-2">Criteria for risk assessment, defining audit scope, and resource allocation strategies prior to fieldwork.</p>
                 </div>
                 <div className="mt-4 rounded-lg border border-gray-200 p-6 bg-slate-50">
-                  <h4 className="font-semibold text-gray-900">Fieldwork & Testing</h4>
+                  <h4 className="font-semibold text-gray-900">Fieldwork &amp; Testing</h4>
                   <p className="text-sm mt-2">Standardized procedures for sample selection, evidence gathering, and documenting workpapers.</p>
                 </div>
                 <div className="mt-4 rounded-lg border border-gray-200 p-6 bg-slate-50">
@@ -100,35 +257,11 @@ export function Publications() {
             </div>
           )}
 
-          {activeTab === 'standards' && (
-            <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">Internal Standards</h2>
-              <div className="prose prose-blue max-w-none text-gray-600 space-y-4">
-                <p>We conform strictly to the International Standards for the Professional Practice of Internal Auditing (Standards) promulgated by the Institute of Internal Auditors (IIA).</p>
-                <h3 className="text-xl font-semibold text-gray-900 mt-6">Attribute Standards</h3>
-                <p>Addresses the characteristics of organizations and parties performing internal audit activities:</p>
-                <ul className="list-disc pl-5">
-                  <li><strong>1000</strong> - Purpose, Authority, and Responsibility</li>
-                  <li><strong>1100</strong> - Independence and Objectivity</li>
-                  <li><strong>1200</strong> - Proficiency and Due Professional Care</li>
-                  <li><strong>1300</strong> - Quality Assurance and Improvement Program</li>
-                </ul>
-                <h3 className="text-xl font-semibold text-gray-900 mt-6">Performance Standards</h3>
-                <p>Describes the nature of internal audit activities and provides quality criteria:</p>
-                <ul className="list-disc pl-5">
-                  <li><strong>2000</strong> - Managing the Internal Audit Activity</li>
-                  <li><strong>2100</strong> - Nature of Work (Governance, Risk Management, Control)</li>
-                  <li><strong>2200</strong> - Engagement Planning</li>
-                  <li><strong>2300</strong> - Performing the Engagement</li>
-                  <li><strong>2400</strong> - Communicating Results</li>
-                </ul>
-              </div>
-            </div>
-          )}
+          {activeTab === 'standards' && <InternalStandardsTab />}
 
           {activeTab === 'guidance' && (
             <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">ISACA & GTAG Guidance</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">ISACA &amp; GTAG Guidance</h2>
               <div className="prose prose-blue max-w-none text-gray-600">
                 <p>For specialized IT and Information Security audits, we align our methodologies with ISACA's ITAF (Information Technology Assurance Framework) and IIA's GTAG (Global Technology Audit Guides).</p>
                 

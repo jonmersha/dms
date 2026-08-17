@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
-import { Users, Plus, Trash2 } from 'lucide-react';
+import { Users, Plus, Trash2, Pencil } from 'lucide-react';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import { Modal } from '../../components/ui/Modal';
 
 interface User {
   id: number;
   username: string;
   email: string;
   full_name: string;
+  first_name: string;
+  last_name: string;
   groups: number[];
   role_display: string;
   department: number | null;
@@ -29,8 +32,11 @@ export function AdminUsers() {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [role, setRole] = useState('TEAM_MEMBER');
+  const [role, setRole] = useState<number | ''>('');
   const [department, setDepartment] = useState<number | ''>('');
+  
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,17 +60,32 @@ export function AdminUsers() {
     queryFn: () => api.get('/api/admin/departments/').then(res => Array.isArray(res.data) ? res.data : (res.data as any).results || []),
   });
 
+  const resetForm = () => {
+    setEditingUserId(null);
+    setIsModalOpen(false);
+    setUsername('');
+    setEmail('');
+    setPassword('');
+    setFirstName('');
+    setLastName('');
+    setRole('');
+    setDepartment('');
+  };
+
   const createMutation = useMutation({
     mutationFn: (newUser: any) => api.post('/api/admin/users/', newUser),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] }); setDeleteConfirmId(null);
-      setUsername('');
-      setEmail('');
-      setPassword('');
-      setFirstName('');
-      setLastName('');
-      setRole('TEAM_MEMBER');
-      setDepartment('');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] }); 
+      setDeleteConfirmId(null);
+      resetForm();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: any) => api.patch(`/api/admin/users/${editingUserId}/`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      resetForm();
     },
   });
 
@@ -83,17 +104,37 @@ export function AdminUsers() {
     },
   });
 
+  const handleEdit = (user: User) => {
+    setEditingUserId(user.id);
+    setUsername(user.username);
+    setEmail(user.email);
+    setFirstName(user.first_name || '');
+    setLastName(user.last_name || '');
+    setRole(user.groups && user.groups.length > 0 ? user.groups[0] : '');
+    setDepartment(user.department || '');
+    setPassword('');
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
+    const payload: any = {
       username,
       email,
-      password,
       first_name: firstName,
       last_name: lastName,
-      role,
+      groups: role !== '' ? [Number(role)] : [],
       department: department === '' ? null : department,
-    });
+    };
+    if (password) {
+      payload.password = password;
+    }
+
+    if (editingUserId) {
+      updateMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   if (isLoading) return <div className="p-8 text-center">Loading...</div>;
@@ -104,21 +145,26 @@ export function AdminUsers() {
         <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
           <Users className="text-blue-600" /> Manage Users
         </h1>
-        <div className="w-full sm:w-64">
+        <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-4">
           <input
             type="text"
             placeholder="Search users..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
+            className="block w-full sm:w-64 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
           />
+          <button
+            onClick={() => { resetForm(); setIsModalOpen(true); }}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 shadow-sm"
+          >
+            <Plus size={20} />
+            Add User
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <div className="overflow-hidden rounded-lg bg-white shadow border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-hidden rounded-lg bg-white shadow border border-gray-200">
+        <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name / Username</th>
@@ -151,6 +197,14 @@ export function AdminUsers() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button 
+                        onClick={() => handleEdit(u)}
+                        className="mr-3 text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                        disabled={u.is_superuser}
+                        title="Edit User"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button 
                         onClick={() => toggleStatusMutation.mutate(u)}
                         className={`mr-3 disabled:opacity-50 ${u.is_active ? 'text-orange-600 hover:text-orange-900' : 'text-green-600 hover:text-green-900'}`}
                         disabled={u.is_superuser || toggleStatusMutation.isPending}
@@ -159,8 +213,10 @@ export function AdminUsers() {
                         {u.is_active ? 'Suspend' : 'Activate'}
                       </button>
                       <button
+                        onClick={() => setDeleteConfirmId(u.id)}
                         className="text-red-600 hover:text-red-900 disabled:opacity-50"
                         disabled={u.is_superuser}
+                        title="Delete User"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -170,14 +226,10 @@ export function AdminUsers() {
               </tbody>
             </table>
           </div>
-        </div>
-
-        <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 h-fit">
-          <h2 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Plus size={20} className="text-blue-600"/> Add User
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+        
+      <Modal isOpen={isModalOpen} onClose={resetForm} title={editingUserId ? 'Edit User' : 'Add User'}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">First Name</label>
                 <input
@@ -223,7 +275,7 @@ export function AdminUsers() {
               <label className="block text-sm font-medium text-gray-700">Password</label>
               <input
                 type="password"
-                required
+                required={!editingUserId}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -234,16 +286,12 @@ export function AdminUsers() {
               <select
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
                 value={role}
-                onChange={(e) => setRole(e.target.value)}
+                onChange={(e) => setRole(e.target.value === '' ? '' : Number(e.target.value))}
               >
-                <option value="ADMIN">System Administrator</option>
-                <option value="CHIEF">Chief Internal Audit</option>
-                <option value="DIRECTOR">Director / Department Head</option>
-                <option value="TEAM_MANAGER">Team Manager</option>
-                <option value="TEAM_MEMBER">Team Member</option>
-                <option value="AUDITOR">Auditor</option>
-                <option value="AUDITEE">Auditee</option>
-                <option value="VISITOR">Visitor</option>
+                <option value="">Select Role</option>
+                {roles.map((r: any) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -259,19 +307,29 @@ export function AdminUsers() {
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
-            >
-              {createMutation.isPending ? 'Creating...' : 'Create User'}
-            </button>
-            {createMutation.isError && (
-              <p className="text-sm text-red-600">Failed to create user.</p>
-            )}
-          </form>
-        </div>
-      </div>
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
+              >
+                {editingUserId 
+                  ? (updateMutation.isPending ? 'Updating...' : 'Update User')
+                  : (createMutation.isPending ? 'Creating...' : 'Create User')}
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="flex-1 flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+            </div>
+          {(createMutation.isError || updateMutation.isError) && (
+            <p className="text-sm text-red-600">Failed to save user. Please check the inputs.</p>
+          )}
+        </form>
+      </Modal>
       
       <ConfirmModal
         isOpen={deleteConfirmId !== null}

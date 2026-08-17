@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2, CheckCircle, Circle } from 'lucide-react';
+import { AlertModal } from '../../components/ui/AlertModal';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import api from '../../api/axios';
 
 interface QuizAnswer {
@@ -36,6 +38,13 @@ export function AdminQuizManager({ quizId, onClose }: AdminQuizManagerProps) {
   // Track expanded questions for editing
   const [expandedQuestionIdx, setExpandedQuestionIdx] = useState<number | null>(null);
 
+  const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'info'}>({ isOpen: false, title: '', message: '', type: 'info' });
+  const [deleteQuestionConfirmIdx, setDeleteQuestionConfirmIdx] = useState<number | null>(null);
+
+  const showAlert = (title: string, message: string, type: 'success'|'error'|'info' = 'info') => {
+    setAlertModal({ isOpen: true, title, message, type });
+  };
+
   useEffect(() => {
     fetchQuiz();
   }, [quizId]);
@@ -61,9 +70,9 @@ export function AdminQuizManager({ quizId, onClose }: AdminQuizManagerProps) {
         description: quiz.description,
         passing_score: quiz.passing_score
       });
-      alert('Quiz metadata updated successfully');
+      showAlert('Success', 'Quiz metadata updated successfully', 'success');
     } catch (err) {
-      alert('Failed to update quiz');
+      showAlert('Error', 'Failed to update quiz', 'error');
     }
   };
 
@@ -93,12 +102,12 @@ export function AdminQuizManager({ quizId, onClose }: AdminQuizManagerProps) {
     
     // Validate
     if (question.answers.length < 2) {
-      alert("A question must have at least 2 answers.");
+      showAlert('Validation Error', "A question must have at least 2 answers.", 'error');
       return;
     }
     const hasCorrect = question.answers.some(a => a.is_correct);
     if (!hasCorrect) {
-      alert("Please mark at least one answer as correct.");
+      showAlert('Validation Error', "Please mark at least one answer as correct.", 'error');
       return;
     }
 
@@ -143,34 +152,36 @@ export function AdminQuizManager({ quizId, onClose }: AdminQuizManagerProps) {
         }
       }
       
-      alert('Question saved successfully');
+      showAlert('Success', 'Question saved successfully', 'success');
       fetchQuiz(); // Refresh full structure to get IDs
       setExpandedQuestionIdx(null);
     } catch (err) {
-      alert('Failed to save question');
+      showAlert('Error', 'Failed to save question', 'error');
     }
   };
 
-  const handleDeleteQuestion = async (qIdx: number) => {
+  const handleDeleteQuestion = (qIdx: number) => {
+    setDeleteQuestionConfirmIdx(qIdx);
+  };
+
+  const confirmDeleteQuestion = async (qIdx: number) => {
     if (!quiz) return;
     const question = quiz.questions[qIdx];
     
-    if (window.confirm("Are you sure you want to delete this question?")) {
-      if (question.id) {
-        try {
-          await api.delete(`/api/public-pages/quiz-questions/${question.id}/`);
-        } catch (err) {
-          alert("Failed to delete question from server.");
-          return;
-        }
+    if (question.id) {
+      try {
+        await api.delete(`/api/public-pages/quiz-questions/${question.id}/`);
+      } catch (err) {
+        showAlert("Error", "Failed to delete question from server.", "error");
+        return;
       }
-      
-      const newQuestions = [...quiz.questions];
-      newQuestions.splice(qIdx, 1);
-      setQuiz({ ...quiz, questions: newQuestions });
-      if (expandedQuestionIdx === qIdx) {
-        setExpandedQuestionIdx(null);
-      }
+    }
+    
+    const newQuestions = [...quiz.questions];
+    newQuestions.splice(qIdx, 1);
+    setQuiz({ ...quiz, questions: newQuestions });
+    if (expandedQuestionIdx === qIdx) {
+      setExpandedQuestionIdx(null);
     }
   };
   
@@ -183,7 +194,7 @@ export function AdminQuizManager({ quizId, onClose }: AdminQuizManagerProps) {
        try {
          await api.delete(`/api/public-pages/quiz-answers/${answer.id}/`);
        } catch (err) {
-          alert("Failed to delete answer from server.");
+          showAlert("Error", "Failed to delete answer from server.", "error");
           return;
        }
      }
@@ -419,6 +430,28 @@ export function AdminQuizManager({ quizId, onClose }: AdminQuizManagerProps) {
           
         </div>
       </div>
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+      
+      <ConfirmModal
+        isOpen={deleteQuestionConfirmIdx !== null}
+        onClose={() => setDeleteQuestionConfirmIdx(null)}
+        onConfirm={() => {
+          if (deleteQuestionConfirmIdx !== null) {
+            confirmDeleteQuestion(deleteQuestionConfirmIdx);
+            setDeleteQuestionConfirmIdx(null);
+          }
+        }}
+        title="Delete Question"
+        message="Are you sure you want to delete this question?"
+        confirmText="Delete"
+      />
     </div>
   );
 }
