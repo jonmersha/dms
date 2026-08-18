@@ -1,0 +1,17 @@
+[Unit]
+Description=Django CAP Gunicorn Service
+After=network.target
+
+[Service]
+User=tadelek
+Group=www-data
+WorkingDirectory=/opt/cap
+EnvironmentFile=-/opt/cap/.env
+Environment="PATH=/opt/cap/venv/bin"
+ExecStart=/opt/cap/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 cap.wsgi:application
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

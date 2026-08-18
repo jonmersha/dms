@@ -4,10 +4,10 @@ import sys
 import json
 import re
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dms.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cap.settings')
 django.setup()
 
-from public_pages.models import LearningPlaylist, LearningEpisode
+from lms.models import LearningPlaylist, LearningEpisode
 
 def parse_ts_file(filepath):
     with open(filepath, 'r') as f:

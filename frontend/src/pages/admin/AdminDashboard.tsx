@@ -1,10 +1,60 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
-import { Users, Building2, Calendar, Activity, Settings, ArchiveRestore } from 'lucide-react';
+import { Users, Building2, Calendar, Activity, Settings, ArchiveRestore, Award, X, UserPlus, Newspaper, Megaphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area } from 'recharts';
+import { AlertModal } from '../../components/ui/AlertModal';
 
 export function AdminDashboard() {
+  const [isCertSettingsModalOpen, setIsCertSettingsModalOpen] = useState(false);
+  const [certSettings, setCertSettings] = useState<{ chief_auditor_name: string, organization_name: string, motto: string, tagline: string }>({ chief_auditor_name: 'Chief Internal Auditor', organization_name: 'Coop Bank Internal Audit Excellence Center', motto: '', tagline: '' });
+  const [bgFile, setBgFile] = useState<File | null>(null);
+  const [sigFile, setSigFile] = useState<File | null>(null);
+  const [alertModal, setAlertModal] = useState<{isOpen: boolean, title: string, message: string, type: 'success'|'error'|'info'}>({ isOpen: false, title: '', message: '', type: 'info' });
+
+  useEffect(() => {
+    fetchCertSettings();
+  }, []);
+
+  const fetchCertSettings = async () => {
+    try {
+      const response = await api.get('/api/lms/certificate-settings/');
+      if (response.data && response.data.length > 0) {
+        setCertSettings({
+          chief_auditor_name: response.data[0].chief_auditor_name || 'Chief Internal Auditor',
+          organization_name: response.data[0].organization_name || 'Coop Bank Internal Audit Excellence Center',
+          motto: response.data[0].motto || '',
+          tagline: response.data[0].tagline || ''
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch certificate settings');
+    }
+  };
+
+  const handleSaveCertSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const formData = new FormData();
+      formData.append('chief_auditor_name', certSettings.chief_auditor_name);
+      formData.append('organization_name', certSettings.organization_name);
+      formData.append('motto', certSettings.motto);
+      formData.append('tagline', certSettings.tagline);
+      if (bgFile) formData.append('background_image', bgFile);
+      if (sigFile) formData.append('signature_image', sigFile);
+
+      await api.put('/api/lms/certificate-settings/1/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setAlertModal({ isOpen: true, title: 'Success', message: 'Certificate settings saved successfully!', type: 'success' });
+      setIsCertSettingsModalOpen(false);
+      fetchCertSettings();
+    } catch (err) {
+      setAlertModal({ isOpen: true, title: 'Error', message: 'Failed to save certificate settings', type: 'error' });
+    }
+  };
   const { data: users = [] } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => api.get('/api/admin/users/').then((res: any) => Array.isArray(res.data) ? res.data : res.data.results || []),
@@ -25,6 +75,36 @@ export function AdminDashboard() {
     queryFn: () => api.get('/api/admin/user-logs/').then((res: any) => res.data?.results || res.data),
   });
 
+
+  const roleDistribution = React.useMemo(() => {
+    const roles: Record<string, number> = {};
+    users.forEach((u: any) => {
+      const role = u.role_display || u.role || 'Unknown';
+      roles[role] = (roles[role] || 0) + 1;
+    });
+    return Object.entries(roles).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
+  }, [users]);
+
+  const deptDistribution = React.useMemo(() => {
+    const depts: Record<string, number> = {};
+    users.forEach((u: any) => {
+      const dept = u.department_details?.name || 'Unassigned';
+      depts[dept] = (depts[dept] || 0) + 1;
+    });
+    return Object.entries(depts).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 5); // top 5
+  }, [users]);
+
+  const activityTimeline = React.useMemo(() => {
+    const dates: Record<string, number> = {};
+    logs.forEach((log: any) => {
+      const d = new Date(log.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      dates[d] = (dates[d] || 0) + 1;
+    });
+    return Object.entries(dates).map(([date, count]) => ({ date, count })).reverse();
+  }, [logs]);
+
+  const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#64748b'];
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8 flex items-center justify-between">
@@ -33,8 +113,37 @@ export function AdminDashboard() {
         </h1>
       </div>
 
+
+      {/* Quick Action Cards */}
+      <div className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Link to="/system/users" className="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer">
+          <UserPlus size={28} className="mb-2 opacity-90" />
+          <span className="font-semibold text-sm">Manage Users</span>
+        </Link>
+        <Link to="/system/departments" className="bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer">
+          <Building2 size={28} className="mb-2 opacity-90" />
+          <span className="font-semibold text-sm">Departments</span>
+        </Link>
+        <button onClick={() => setIsCertSettingsModalOpen(true)} className="bg-amber-600 hover:bg-amber-700 text-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer w-full">
+          <Award size={28} className="mb-2 opacity-90" />
+          <span className="font-semibold text-sm">Certificates</span>
+        </button>
+        <Link to="/system/backups" className="bg-rose-600 hover:bg-rose-700 text-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer">
+          <ArchiveRestore size={28} className="mb-2 opacity-90" />
+          <span className="font-semibold text-sm">System Backup</span>
+        </Link>
+        <Link to="/system/content" className="bg-sky-600 hover:bg-sky-700 text-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer">
+          <Newspaper size={28} className="mb-2 opacity-90" />
+          <span className="font-semibold text-sm">Public Content</span>
+        </Link>
+        <Link to="/system/announcements" className="bg-violet-600 hover:bg-violet-700 text-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer">
+          <Megaphone size={28} className="mb-2 opacity-90" />
+          <span className="font-semibold text-sm">Announcements</span>
+        </Link>
+      </div>
+
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+        <Link to="/system/users" className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
           <div className="rounded-md bg-blue-100 p-3 text-blue-600">
             <Users size={24} />
           </div>
@@ -42,9 +151,9 @@ export function AdminDashboard() {
             <p className="text-sm font-medium text-gray-500">Total Users</p>
             <p className="text-2xl font-semibold text-gray-900">{users.length}</p>
           </div>
-        </div>
+        </Link>
         
-        <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+        <Link to="/system/departments" className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
           <div className="rounded-md bg-purple-100 p-3 text-purple-600">
             <Building2 size={24} />
           </div>
@@ -52,9 +161,9 @@ export function AdminDashboard() {
             <p className="text-sm font-medium text-gray-500">Departments</p>
             <p className="text-2xl font-semibold text-gray-900">{departments.length}</p>
           </div>
-        </div>
+        </Link>
 
-        <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+        <Link to="/system/periods" className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
           <div className="rounded-md bg-green-100 p-3 text-green-600">
             <Calendar size={24} />
           </div>
@@ -62,9 +171,9 @@ export function AdminDashboard() {
             <p className="text-sm font-medium text-gray-500">Audit Periods</p>
             <p className="text-2xl font-semibold text-gray-900">{periods.length}</p>
           </div>
-        </div>
+        </Link>
 
-        <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+        <Link to="/system/logs" className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
           <div className="rounded-md bg-yellow-100 p-3 text-yellow-600">
             <Activity size={24} />
           </div>
@@ -72,40 +181,53 @@ export function AdminDashboard() {
             <p className="text-sm font-medium text-gray-500">Total Audit Logs</p>
             <p className="text-2xl font-semibold text-gray-900">{logs.length}</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <Settings className="text-gray-500" /> Administrative Sections
-          </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <Link to="/system/users" className="block p-4 border border-gray-200 rounded-lg hover:bg-blue-50 transition-colors">
-              <Users className="text-blue-600 mb-2" size={24} />
-              <h3 className="font-semibold text-gray-900">Manage Users</h3>
-              <p className="text-sm text-gray-500">Add, edit, or suspend users</p>
-            </Link>
-            <Link to="/system/departments" className="block p-4 border border-gray-200 rounded-lg hover:bg-purple-50 transition-colors">
-              <Building2 className="text-purple-600 mb-2" size={24} />
-              <h3 className="font-semibold text-gray-900">Manage Departments</h3>
-              <p className="text-sm text-gray-500">Configure organizational structure</p>
-            </Link>
-            <Link to="/system/periods" className="block p-4 border border-gray-200 rounded-lg hover:bg-green-50 transition-colors">
-              <Calendar className="text-green-600 mb-2" size={24} />
-              <h3 className="font-semibold text-gray-900">Audit Periods</h3>
-              <p className="text-sm text-gray-500">Define fiscal years and quarters</p>
-            </Link>
-            <Link to="/system/logs" className="block p-4 border border-gray-200 rounded-lg hover:bg-yellow-50 transition-colors">
-              <Activity className="text-yellow-600 mb-2" size={24} />
-              <h3 className="font-semibold text-gray-900">System Logs</h3>
-              <p className="text-sm text-gray-500">View user activities and audits</p>
-            </Link>
-            <Link to="/system/backups" className="block p-4 border border-gray-200 rounded-lg hover:bg-blue-50 transition-colors">
-              <ArchiveRestore className="text-blue-600 mb-2" size={24} />
-              <h3 className="font-semibold text-gray-900">Backup & Restore</h3>
-              <p className="text-sm text-gray-500">Manage system data backups</p>
-            </Link>
+        <div className="flex flex-col gap-6">
+          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Users className="text-indigo-600" /> User Role Distribution
+            </h2>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={roleDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {roleDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Building2 className="text-emerald-600" /> Top Departments by Size
+            </h2>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={deptDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{fontSize: 12}} interval={0} angle={-45} textAnchor="end" height={60} />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip cursor={{fill: '#f1f5f9'}} />
+                  <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} name="Users" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
@@ -113,6 +235,19 @@ export function AdminDashboard() {
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Activity className="text-blue-600" /> Recent User Activity
           </h2>
+          
+          <div className="h-48 mb-6 border-b border-gray-100 pb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={activityTimeline}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" tick={{fontSize: 12}} />
+                <YAxis allowDecimals={false} width={30} />
+                <Tooltip />
+                <Area type="monotone" dataKey="count" stroke="#3b82f6" fill="#93c5fd" name="Activities" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          
           {logs.length > 0 ? (
             <div className="flow-root">
               <ul className="-mb-8">
@@ -151,6 +286,112 @@ export function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Certificate Settings Modal */}
+      {isCertSettingsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Certificate Settings</h2>
+              <button onClick={() => setIsCertSettingsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveCertSettings} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
+                <input
+                  type="text"
+                  required
+                  value={certSettings.organization_name}
+                  onChange={e => setCertSettings({...certSettings, organization_name: e.target.value})}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bank Motto</label>
+                <input
+                  type="text"
+                  value={certSettings.motto}
+                  placeholder="e.g. Excellence in Auditing"
+                  onChange={e => setCertSettings({...certSettings, motto: e.target.value})}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
+                <input
+                  type="text"
+                  value={certSettings.tagline}
+                  placeholder="e.g. Empowering Trust"
+                  onChange={e => setCertSettings({...certSettings, tagline: e.target.value})}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chief Internal Auditor Name</label>
+                <input
+                  type="text"
+                  required
+                  value={certSettings.chief_auditor_name}
+                  onChange={e => setCertSettings({...certSettings, chief_auditor_name: e.target.value})}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Background Artistic Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => { if (e.target.files) setBgFile(e.target.files[0]) }}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <p className="mt-1 text-xs text-gray-500">A4 Landscape format recommended.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Signature Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => { if (e.target.files) setSigFile(e.target.files[0]) }}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <p className="mt-1 text-xs text-gray-500">Transparent PNG recommended.</p>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCertSettingsModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 shadow-sm"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

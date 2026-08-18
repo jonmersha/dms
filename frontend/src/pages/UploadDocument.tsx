@@ -85,7 +85,7 @@ export function UploadDocument() {
     try {
       await api.post('/api/documents/', data, { headers: { 'Content-Type': 'multipart/form-data' } });
       setAlertConfig({ isOpen: true, message: 'Document uploaded successfully!', type: 'success' });
-      setTimeout(() => navigate(-1), 1200);
+      setTimeout(() => navigate('/documents'), 1200);
     } catch (err: any) {
       setAlertConfig({
         isOpen: true,

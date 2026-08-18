@@ -93,7 +93,7 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
         <h2 className="mb-6 text-3xl font-bold text-center text-gray-900">
-          {isLoginMode ? 'DMS Login' : 'Create Account'}
+          {isLoginMode ? 'CAP Login' : 'Create Account'}
         </h2>
         
         {successMsg && (

@@ -3,7 +3,7 @@ import django
 from django.test.client import Client
 import json
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dms.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cap.settings')
 django.setup()
 
 from users.models import User

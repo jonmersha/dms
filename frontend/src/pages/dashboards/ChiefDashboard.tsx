@@ -25,7 +25,10 @@ export function ChiefDashboard() {
     queryFn: () => api.get('/api/documents/chief_action_items/').then(res => res.data),
   });
 
-
+  const { data: plans } = useQuery({
+    queryKey: ['performance-plans'],
+    queryFn: () => api.get('/api/admin/performance-plans/').then(res => res.data),
+  });
 
   return (
     <div>
@@ -69,6 +72,41 @@ export function ChiefDashboard() {
               <p className="text-sm font-medium text-gray-500">Deletion Requests</p>
               <p className="text-2xl font-semibold text-gray-900">{stats.deletion_requested}</p>
             </div>
+          </div>
+
+          <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+            <div className="rounded-md bg-purple-100 p-3 text-purple-600">
+              <CheckCircle size={24} />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Active Engagements</p>
+              <p className="text-2xl font-semibold text-gray-900">{plans?.filter((p: any) => p.plan_type === 'ENGAGEMENT').length || 0}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+            <div className="rounded-md bg-green-100 p-3 text-green-600">
+              <Activity size={24} />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Ongoing Activities</p>
+              <p className="text-2xl font-semibold text-gray-900">{plans?.filter((p: any) => p.plan_type === 'ENGAGEMENT').reduce((acc: number, p: any) => acc + (p.engagement_activities?.length || 0), 0) || 0}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 lg:col-span-6">
+            <div className="flex items-center">
+              <div className="rounded-md bg-purple-100 p-3 text-purple-600">
+                <FileText size={24} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Organization Performance & Plans</p>
+                <p className="text-sm text-gray-900">Manage strategic plans and view performance execution across all departments.</p>
+              </div>
+            </div>
+            <Link to="/dashboard/performance-plans" className="px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-md hover:bg-blue-100 transition-colors">
+              Manage Plans
+            </Link>
           </div>
 
           <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 lg:col-span-5">

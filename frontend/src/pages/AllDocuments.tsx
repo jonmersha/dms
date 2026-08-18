@@ -3,15 +3,26 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api/axios';
 import { DocumentList } from '../components/DocumentList';
 import { FileText, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export function AllDocuments() {
   const { user } = useAuth();
-  const { data: documents = [], isLoading } = useQuery({
+  const [searchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status');
+
+  const { data: documentsData = [], isLoading } = useQuery({
     queryKey: ['documents'],
     queryFn: () => api.get('/api/documents/').then(res => Array.isArray(res.data) ? res.data : (res.data as any).results || []),
   });
+
+  const documents = React.useMemo(() => {
+    let docs = Array.isArray(documentsData) ? documentsData : (documentsData as any).results || [];
+    if (statusFilter) {
+      docs = docs.filter((d: any) => d.status === statusFilter);
+    }
+    return docs;
+  }, [documentsData, statusFilter]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

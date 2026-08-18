@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api/axios';
 import { FileText, Clock, CheckCircle, AlertTriangle, Plus, Shield } from 'lucide-react';
 import { ChiefDashboard } from './dashboards/ChiefDashboard';
+import { DirectorDashboard } from './dashboards/DirectorDashboard';
 import { Link } from 'react-router-dom';
-import { ArchiveRestore } from 'lucide-react';
+import { ArchiveRestore, Activity } from 'lucide-react';
 
 function StandardDashboard({ user }: { user: any }) {
 
@@ -20,8 +21,18 @@ function StandardDashboard({ user }: { user: any }) {
     queryFn: () => api.get('/api/documents/').then(res => Array.isArray(res.data) ? res.data : (res.data as any).results || []),
   });
 
+  const { data: plans = [] } = useQuery({
+    queryKey: ['my-performance-plans'],
+    queryFn: () => api.get('/api/admin/performance-plans/').then(res => res.data),
+  });
 
   const documentList = Array.isArray(documents) ? documents : (documents as any).results || [];
+  
+  const myPlans = plans.filter((p: any) => p.department === user?.department?.id || (p.department && p.department.id === user?.department?.id));
+  const activeEngagements = myPlans.filter((p: any) => p.plan_type === 'ENGAGEMENT').length;
+  const activeActivities = myPlans
+    .filter((p: any) => p.plan_type === 'ENGAGEMENT')
+    .reduce((acc: number, p: any) => acc + (p.engagement_activities?.length || 0), 0);
 
   return (
     <div>
@@ -61,6 +72,40 @@ function StandardDashboard({ user }: { user: any }) {
                   </p>
                 </div>
               </div>
+
+              <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+                <div className="rounded-md bg-purple-100 p-3 text-purple-600">
+                  <CheckCircle size={24} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Active Engagements</p>
+                  <p className="text-2xl font-semibold text-gray-900">{activeEngagements}</p>
+                </div>
+              </div>
+              <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
+                <div className="rounded-md bg-green-100 p-3 text-green-600">
+                  <Activity size={24} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Ongoing Activities</p>
+                  <p className="text-2xl font-semibold text-gray-900">{activeActivities}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 sm:col-span-2 lg:col-span-4">
+                <div className="flex items-center">
+                  <div className="rounded-md bg-purple-100 p-3 text-purple-600">
+                    <FileText size={24} />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Department Performance & Plans</p>
+                    <p className="text-sm text-gray-900">Manage strategic plans and project engagements for your team.</p>
+                  </div>
+                </div>
+                <Link to="/dashboard/performance-plans" className="px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-md hover:bg-blue-100 transition-colors">
+                  Manage Plans
+                </Link>
+              </div>
+
               <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 sm:col-span-2 lg:col-span-4">
                 <div className="flex items-center">
                   <div className="rounded-md bg-indigo-100 p-3 text-indigo-600">
@@ -78,59 +123,7 @@ function StandardDashboard({ user }: { user: any }) {
             </>
           )}
 
-          {(user?.role === 'DIRECTOR') && (
-            <>
-              <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
-                <div className="rounded-md bg-blue-100 p-3 text-blue-600">
-                  <FileText size={24} />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Department Documents</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
-                </div>
-              </div>
 
-              <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
-                <div className="rounded-md bg-red-100 p-3 text-red-600">
-                  <AlertTriangle size={24} />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Pending My Approval</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats.pending}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 sm:col-span-2 lg:col-span-4">
-                <div className="flex items-center">
-                  <div className="rounded-md bg-purple-100 p-3 text-purple-600">
-                    <FileText size={24} />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Department Performance & Plans</p>
-                    <p className="text-sm text-gray-900">Register strategic plans and performance metrics for the public site.</p>
-                  </div>
-                </div>
-                <Link to="/dashboard/performance-plans" className="px-4 py-2 bg-blue-50 text-blue-600 font-medium rounded-md hover:bg-blue-100 transition-colors">
-                  Manage Plans
-                </Link>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm border border-gray-200 col-span-1 sm:col-span-2 lg:col-span-4">
-                <div className="flex items-center">
-                  <div className="rounded-md bg-indigo-100 p-3 text-indigo-600">
-                    <FileText size={24} />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Learning & Courses</p>
-                    <p className="text-sm text-gray-900">Create and manage learning courses and playlists for the organization.</p>
-                  </div>
-                </div>
-                <Link to="/system/learning" className="px-4 py-2 bg-indigo-50 text-indigo-600 font-medium rounded-md hover:bg-indigo-100 transition-colors">
-                  Manage Courses
-                </Link>
-              </div>
-            </>
-          )}
 
           {(!user || user?.role === 'AUDITOR' || user?.role === 'AUDITEE' || user?.role === 'VISITOR') && (
             <div className="flex items-center rounded-lg bg-white p-4 shadow-sm border border-gray-200">
@@ -204,6 +197,8 @@ export function Dashboard() {
           </div>
           <ChiefDashboard />
         </>
+      ) : user?.role === 'DIRECTOR' ? (
+        <DirectorDashboard user={user} />
       ) : (
         <StandardDashboard user={user} />
       )}

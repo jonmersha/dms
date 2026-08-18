@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, Home, Shield, Settings, FileText, Trash2, Building2, Users, Activity, Calendar, User, Newspaper, ChevronDown, ListVideo } from 'lucide-react';
+import { LogOut, Home, Shield, Settings, FileText, Trash2, Building2, Users, Activity, Calendar, User, Newspaper, ChevronDown, ListVideo, Briefcase, PieChart, AlertCircle } from 'lucide-react';
 
 function isSuperAdmin(user: { is_superuser: boolean; role: string }) {
   return user.is_superuser || user.role === 'ADMIN';
@@ -30,70 +30,75 @@ export function SystemNavbar() {
             </Link>
             
             {user && (
-              <div className="hidden md:flex space-x-4">
-                {/* Non-admin users: show standard dashboard/documents links */}
-                {!isSuperAdmin(user) && user.role !== 'AUDITEE' && user.role !== 'VISITOR' && (
-                  <>
-                    <Link to="/dashboard" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                      <Home size={18} /> Dashboard
-                    </Link>
-                    <Link to="/documents" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                      <FileText size={18} /> Documents
-                    </Link>
-                  </>
-                )}
-                
-                {/* Super Admin system links */}
-                {user && isSuperAdmin(user) && (
-                  <>
-                    <Link to="/system/dashboard" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                      <Settings size={18} /> Dashboard
-                    </Link>
-                    <Link to="/system/departments" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                      <Building2 size={18} /> Departments
-                    </Link>
-                    {(user.is_superuser || user.can_manage_public_content) && (
-                      <>
-                        <Link 
-                          to="/system/content" 
-                          className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                            location.pathname === '/system/content' ? 'bg-blue-800 text-white' : 'hover:bg-blue-600 hover:text-white text-blue-100'
-                          }`}
-                        >
-                          <Newspaper size={18} />
-                          Content
-                        </Link>
-                        <Link 
-                          to="/system/learning" 
-                          className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                            location.pathname === '/system/learning' ? 'bg-blue-800 text-white' : 'hover:bg-blue-600 hover:text-white text-blue-100'
-                          }`}
-                        >
-                          <ListVideo size={18} />
-                          Learning
-                        </Link>
-                      </>
-                    )}
-                    
-                    <Link to="/system/users" className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                          location.pathname === '/system/users' ? 'bg-blue-800 text-white' : 'hover:bg-blue-600 hover:text-white text-blue-100'
-                        }`}>
-                        <Users size={18} />
-                        Users
-                      </Link>
-                    <Link to="/system/logs" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                      <Activity size={18} /> Logs
-                    </Link>
-                    <Link to="/system/periods" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                      <Calendar size={18} /> Periods
-                    </Link>
-                  </>
-                )}
-                
-                {(user.role === 'CHIEF' || user.role === 'DIRECTOR') && (
-                  <Link to="/system/announcements" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                    <Newspaper size={18} /> Announcements
+              <div className="hidden md:flex space-x-4 items-center">
+                {/* Dashboard */}
+                {user.role !== 'VISITOR' && (
+                  <Link to="/dashboard" title="Dashboard" className="flex items-center justify-center rounded-md p-2 hover:bg-blue-600 transition-colors">
+                    <Activity size={20} />
                   </Link>
+                )}
+
+                {/* 1. Public Web */}
+                {!isSuperAdmin(user) && (
+                  <Link to="/" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                  <Home size={18} /> Public Web
+                  </Link>
+                )}
+                
+
+                
+                {/* 2. CAP */}
+                {user.role !== 'VISITOR' && !isSuperAdmin(user) && (
+                  <Link to="/documents" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                    <FileText size={18} /> CAP
+                  </Link>
+                )}
+
+                
+                {/* Branch Irregularities */}
+                {user.role !== 'VISITOR' && !isSuperAdmin(user) && (
+                  <Link to="/incident-log" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                    <AlertCircle size={18} /> Incident Log
+                  </Link>
+                )}
+
+                {/* 3. Audit Workflow */}
+                {['CHIEF', 'DIRECTOR', 'TEAM_MANAGER'].includes(user.role) && (
+                  <Link to="/auditflow/universe" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                    <Shield size={18} /> Audit
+                  </Link>
+                )}
+
+                {/* 4. Analytics */}
+                {['CHIEF', 'DIRECTOR', 'TEAM_MANAGER'].includes(user.role) && (
+                  <Link to="/analytics/overview" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                    <PieChart size={18} /> Analytics
+                  </Link>
+                )}
+
+                {/* 5. LMS */}
+                {user.role !== 'VISITOR' && !isSuperAdmin(user) && (
+                  <Link to="/system/learning" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                    <ListVideo size={18} /> LMS
+                  </Link>
+                )}
+
+                {/* System Administration Dropdown */}
+                {isSuperAdmin(user) && (
+                  <div className="relative group flex items-center ml-4">
+                    <button className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                      <Settings size={18} /> Administration <ChevronDown size={14} />
+                    </button>
+                    <div className="absolute left-0 top-full mt-1 w-48 rounded-md bg-white text-gray-800 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 py-1 border border-gray-100">
+                      <Link to="/system/dashboard" className="block px-4 py-2 hover:bg-gray-100 text-sm">Dashboard</Link>
+                      <Link to="/system/departments" className="block px-4 py-2 hover:bg-gray-100 text-sm">Departments</Link>
+                      <Link to="/system/users" className="block px-4 py-2 hover:bg-gray-100 text-sm">Users</Link>
+                      <Link to="/system/periods" className="block px-4 py-2 hover:bg-gray-100 text-sm">Periods</Link>
+                      <Link to="/system/logs" className="block px-4 py-2 hover:bg-gray-100 text-sm">Audit Logs</Link>
+                      <Link to="/system/content" className="block px-4 py-2 hover:bg-gray-100 text-sm">Content</Link>
+                      <Link to="/system/backups" className="block px-4 py-2 hover:bg-gray-100 text-sm">Backups</Link>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

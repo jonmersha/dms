@@ -2,7 +2,7 @@ import os
 import json
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dms.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'cap.settings')
 django.setup()
 
 from public_pages.models import LearningPlaylist, LearningEpisode, Quiz, QuizQuestion, QuizAnswer

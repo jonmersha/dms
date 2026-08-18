@@ -2,6 +2,14 @@ from datetime import timedelta
 from pathlib import Path
 # settings.py
 import os
+import os
+import sys
+
+# Add the apps directory to the Python path
+APPS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'apps')
+if APPS_DIR not in sys.path:
+    sys.path.insert(0, APPS_DIR)
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,8 +56,11 @@ INSTALLED_APPS = [
     'corsheaders',  # Add this for CORS
     'users',
     'audits',
+    'analytics',
     'documents',  # Fixed: changed from 'documents' to 'documents'
     'public_pages',
+    'lms',
+    'irregularities',
 ]
 
 MIDDLEWARE = [
@@ -65,7 +76,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'dms.urls'
+ROOT_URLCONF = 'cap.urls'
 
 TEMPLATES = [
     {
@@ -82,15 +93,27 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'dms.wsgi.application'
+WSGI_APPLICATION = 'cap.wsgi.application'
 
 # Database
+# Temporarily reverted to SQLite to test app functionality after restructure
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+# PostgreSQL Configuration (Commented out until DB is provisioned)
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.environ.get('DB_NAME', 'dms_db'),
+#         'USER': os.environ.get('DB_USER', 'postgres'),
+#         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+#         'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+#         'PORT': os.environ.get('DB_PORT', '5432'),
+#     }
+# }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -143,8 +166,8 @@ REST_FRAMEWORK = {
 
 # JWT
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(hours=12),
     'AUTH_HEADER_TYPES': ('JWT',),
 }
 
@@ -190,3 +213,15 @@ INTERNAL_IPS = [
     '10.11.246.192',
     '10.0.0.1',
 ]
+# ==========================================
+# Security & Session Hardening
+# ==========================================
+SESSION_COOKIE_AGE = 900  # 15 minutes (in seconds)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# Note: SECURE_SSL_REDIRECT, SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE 
+# are intentionally left out or commented to allow local HTTP development.

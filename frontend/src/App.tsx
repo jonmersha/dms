@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
@@ -32,13 +32,33 @@ import { Activation } from './pages/auth/Activation';
 import { PasswordResetRequest } from './pages/auth/PasswordResetRequest';
 import { PasswordResetConfirm } from './pages/auth/PasswordResetConfirm';
 import { Profile } from './pages/Profile';
+import { AuditFlowLayout } from './layouts/AuditFlowLayout';
+import { AuditProvider } from './contexts/AuditContext';
+import UniversePlanView from './pages/audit/flow/UniversePlanView';
+import AdminConsoleView from './pages/audit/flow/AdminConsoleView';
+import RiskAssessmentView from './pages/audit/flow/RiskAssessmentView';
+import EngagementView from './pages/audit/flow/EngagementView';
+import FieldworkFindingView from './pages/audit/flow/FieldworkFindingView';
+import RemediationView from './pages/audit/flow/RemediationView';
+import DashboardKpiView from './pages/audit/flow/DashboardKpiView';
+import IrregularityRegistryView from './pages/irregularities/IrregularityRegistryView';
+import IncidentAdminView from './pages/irregularities/IncidentAdminView';
+import OrgStructureView from './pages/audit/flow/OrgStructureView';
+import CaatAnalyticsView from './pages/audit/flow/CaatAnalyticsView';
+import ImmutableLogView from './pages/audit/flow/ImmutableLogView';
+import { AnalyticsLayout } from './layouts/AnalyticsLayout';
+import { SessionTimeoutManager } from './components/SessionTimeoutManager';
+import { AnalyticsDashboard } from './pages/analytics/AnalyticsDashboard';
+import { DataSources } from './pages/analytics/DataSources';
+import { AuditScripts } from './pages/analytics/AuditScripts';
+import { ExceptionsDashboard } from './pages/analytics/ExceptionsDashboard';
 
 // A user is a Super Admin if they are a Django superuser OR belong to the System Administrator group
 function isSuperAdmin(user: { is_superuser: boolean; role: string }) {
   return user.is_superuser || user.role === 'ADMIN';
 }
 
-function ProtectedRoute({ children, allowedRoles, requireAdmin }: { children: React.ReactNode, allowedRoles?: string[], requireAdmin?: boolean }) {
+function ProtectedRoute({ children, allowedRoles, requireAdmin, disableLayout }: { children: React.ReactNode, allowedRoles?: string[], requireAdmin?: boolean, disableLayout?: boolean }) {
   const { user, loading } = useAuth();
 
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
@@ -46,6 +66,7 @@ function ProtectedRoute({ children, allowedRoles, requireAdmin }: { children: Re
   
   // Super Admins bypass all role restrictions
   if (isSuperAdmin(user)) {
+    if (disableLayout) return <>{children}</>;
     return (
       <div className="flex min-h-screen flex-col bg-gray-50">
         <SystemNavbar />
@@ -63,6 +84,7 @@ function ProtectedRoute({ children, allowedRoles, requireAdmin }: { children: Re
     return <Navigate to="/" />;
   }
 
+  if (disableLayout) return <>{children}</>;
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <SystemNavbar />
@@ -84,7 +106,8 @@ function HomeRedirector() {
 function App() {
   return (
     <Router>
-      <Routes>
+      <SessionTimeoutManager timeoutMinutes={15} warningMinutes={1}>
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/activate/:uid/:token" element={<Activation />} />
         <Route path="/password-reset" element={<PasswordResetRequest />} />
@@ -268,9 +291,74 @@ function App() {
             </ProtectedRoute>
           } 
         />
+        
+        
+        {/* Incident Log Route */}
+        <Route 
+          path="/incident-log/admin" 
+          element={
+            <ProtectedRoute allowedRoles={['ADMIN', 'CHIEF', 'DIRECTOR']} disableLayout={true}>
+              <div className="py-6"><IncidentAdminView /></div>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/incident-log" 
+          element={
+            <ProtectedRoute allowedRoles={['CHIEF', 'DIRECTOR', 'TEAM_MANAGER', 'ADMIN', 'BRANCH_CONTROLLER', 'USER', 'CHIEF_AUDITOR', 'SENIOR_AUDITOR', 'AUDITOR']}>
+              <div className="py-6"><IrregularityRegistryView /></div>
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Audit Management Routes */}
+        <Route 
+          path="/auditflow" 
+          element={
+            <ProtectedRoute allowedRoles={['CHIEF', 'DIRECTOR', 'TEAM_MANAGER', 'ADMIN']} disableLayout={true}>
+              <AuditProvider>
+                <Outlet />
+              </AuditProvider>
+            </ProtectedRoute>
+          } 
+        >
+          {/* Admin console has its own layout */}
+          <Route path="admin" element={<AdminConsoleView />} />
+          
+          {/* All other routes use the AuditFlowLayout */}
+          <Route element={<AuditFlowLayout />}>
+          <Route path="universe" element={<UniversePlanView />} />
+          <Route path="annual-plan" element={<RiskAssessmentView targetModule="AnnualPlan" />} />
+          <Route path="engagements" element={<EngagementView />} />
+          <Route path="fieldwork" element={<FieldworkFindingView />} />
+          <Route path="reporting" element={<RemediationView />} />
+          <Route path="dashboard" element={<DashboardKpiView />} />
+          <Route path="risk-assessment" element={<RiskAssessmentView targetModule="RiskAssessment" />} />
+          <Route path="remediation" element={<RemediationView />} />
+          <Route path="org-structure" element={<OrgStructureView />} />
+          <Route path="caat-analytics" element={<CaatAnalyticsView />} />
+          <Route path="immutable-logs" element={<ImmutableLogView />} />
+          </Route>
+        </Route>
+
+        {/* Analytics Routes */}
+        <Route 
+          path="/analytics" 
+          element={
+            <ProtectedRoute disableLayout={true}>
+              <AnalyticsLayout />
+            </ProtectedRoute>
+          } 
+        >
+          <Route path="overview" element={<AnalyticsDashboard />} />
+          <Route path="sources" element={<DataSources />} />
+          <Route path="scripts" element={<AuditScripts />} />
+          <Route path="exceptions" element={<ExceptionsDashboard />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+        </Routes>
+      </SessionTimeoutManager>
     </Router>
   );
 }

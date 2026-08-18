@@ -34,6 +34,7 @@ interface Episode {
   content_text: string;
   order: number;
   is_completed: boolean;
+  last_position?: number;
   quiz?: Quiz;
 }
 
@@ -75,7 +76,7 @@ export function Learning() {
   const fetchPlaylists = async () => {
     try {
       // Fetch playlists from API. The backend returns is_enrolled and progress_percentage if authenticated.
-      const response = await api.get('/api/public-pages/learning-playlists/');
+      const response = await api.get('/api/lms/learning-playlists/');
       const data = Array.isArray(response.data) ? response.data : (response.data.results || []);
       setPlaylists(data as Playlist[]);
     } catch (error) {
@@ -113,7 +114,7 @@ export function Learning() {
       return;
     }
     try {
-      await api.post(`/api/public-pages/learning-playlists/${playlistId}/enroll/`);
+      await api.post(`/api/lms/learning-playlists/${playlistId}/enroll/`);
       
       // Update the playlists list
       const updatedPlaylists = playlists.map(p => 
@@ -134,7 +135,7 @@ export function Learning() {
 
   const handlePreviewCertificate = async (playlistId: number) => {
     try {
-      const response = await api.get(`/api/public-pages/learning-playlists/${playlistId}/certificate/`, {
+      const response = await api.get(`/api/lms/learning-playlists/${playlistId}/certificate/`, {
         responseType: 'blob', // Important for downloading files
       });
       
@@ -169,7 +170,7 @@ export function Learning() {
       return;
     }
     try {
-      await api.post(`/api/public-pages/learning-episodes/${episodeId}/complete/`);
+      await api.post(`/api/lms/learning-episodes/${episodeId}/complete/`);
       
       // Update local state for immediate feedback
       if (selectedPlaylist) {
@@ -249,7 +250,7 @@ export function Learning() {
     if (!currentEpisode?.quiz) return;
     setSubmittingQuiz(true);
     try {
-      const res = await api.post(`/api/public-pages/quiz-answers/${currentEpisode.quiz.id}/submit/`, {
+      const res = await api.post(`/api/lms/quiz-answers/${currentEpisode.quiz.id}/submit/`, {
         answers: quizAnswers
       });
       setQuizResult({ score: res.data.score, passed: res.data.passed });
@@ -258,7 +259,7 @@ export function Learning() {
       // We should refresh the playlist to reflect this and update current episode
       if (res.data.passed) {
         // Find playlist details again to refresh completion state
-        const updatedRes = await api.get(`/api/public-pages/learning-playlists/${selectedPlaylist?.id}/`);
+        const updatedRes = await api.get(`/api/lms/learning-playlists/${selectedPlaylist?.id}/`);
         setSelectedPlaylist(updatedRes.data);
         const updatedEp = updatedRes.data.episodes.find((ep: any) => ep.id === currentEpisode.id);
         if (updatedEp) setCurrentEpisode(updatedEp);
@@ -271,6 +272,7 @@ export function Learning() {
   };
 
   const startVideoTracking = (player: any) => {
+    let ticks = 0;
     if (videoIntervalRef.current) clearInterval(videoIntervalRef.current);
     videoIntervalRef.current = setInterval(async () => {
       try {
@@ -278,6 +280,12 @@ export function Learning() {
         const duration = await player.getDuration();
         if (duration > 0) {
           setVideoProgress((currentTime / duration) * 100);
+        }
+        
+        ticks++;
+        if (ticks % 10 === 0 && currentEpisode && user) {
+          api.post(`/api/lms/learning-episodes/${currentEpisode.id}/save_progress/`, { position: currentTime })
+             .catch(e => console.error("Failed to save progress", e));
         }
       } catch (e) {
         // ignore
@@ -323,6 +331,7 @@ export function Learning() {
     width: '100%',
     playerVars: {
       autoplay: 1,
+      start: currentEpisode?.last_position || 0,
     },
   };
 

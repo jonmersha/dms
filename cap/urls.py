@@ -4,7 +4,7 @@ from django.views.generic import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
 from documents.views import document_download_admin, protected_media_view
-from dms.cd import CreateAdminUserView
+from cap.cd import CreateAdminUserView
 from .views import custom_login, custom_logout, profile_view
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -22,8 +22,12 @@ urlpatterns = [
     path('auth/', include('djoser.urls.jwt')),
     path('documents/', include('documents.urls')),
     path('api/', include('documents.api_urls')),
-    path('api/admin/', include('dms.api_admin_urls')),
+    path('api/admin/', include('cap.api_admin_urls')),
+    path('api/audits/', include('audits.urls')),
+    path('api/analytics/', include('analytics.urls')),
     path('api/public-pages/', include('public_pages.urls')),
+    path('api/lms/', include('lms.urls')),
+    path('api/irregularities/', include('irregularities.urls')),
     path('cd/', CreateAdminUserView.as_view(), name="create-admin"),
     
     # Swagger API Docs
