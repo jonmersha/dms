@@ -72,7 +72,7 @@ function isSuperAdmin(user: { is_superuser: boolean; role: string }) {
   return user.is_superuser || user.role === 'ADMIN';
 }
 
-function ProtectedRoute({ children, allowedRoles, requireAdmin, disableLayout, allowLmsCreator, requireIrregularityAccess }: { children: React.ReactNode, allowedRoles?: string[], requireAdmin?: boolean, disableLayout?: boolean, allowLmsCreator?: boolean, requireIrregularityAccess?: boolean }) {
+function ProtectedRoute({ children, allowedRoles, requireAdmin, disableLayout, allowLmsCreator, requireIrregularityAccess, requireAuditAccess }: { children: React.ReactNode, allowedRoles?: string[], requireAdmin?: boolean, disableLayout?: boolean, allowLmsCreator?: boolean, requireIrregularityAccess?: boolean, requireAuditAccess?: boolean }) {
   const { user, loading } = useAuth();
 
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
@@ -82,7 +82,7 @@ function ProtectedRoute({ children, allowedRoles, requireAdmin, disableLayout, a
   if (isSuperAdmin(user)) {
     if (disableLayout) return <>{children}</>;
     return (
-      <div className="flex min-h-screen flex-col bg-gray-50">
+      <div className="flex min-h-screen flex-col bg-gray-50 pb-16 md:pb-0">
         <SystemNavbar />
         <main className="flex-1">{children}</main>
       </div>
@@ -102,6 +102,10 @@ function ProtectedRoute({ children, allowedRoles, requireAdmin, disableLayout, a
   if (requireIrregularityAccess && !user.has_irregularity_access) {
     return <Navigate to="/unauthorized" />;
   }
+
+  if (requireAuditAccess && !user.has_audit_access) {
+    return <Navigate to="/unauthorized" />;
+  }
   
   // System-only routes (departments, users, roles, etc.) require Super Admin
   if (requireAdmin) {
@@ -110,7 +114,7 @@ function ProtectedRoute({ children, allowedRoles, requireAdmin, disableLayout, a
 
   if (disableLayout) return <>{children}</>;
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-screen flex-col bg-gray-50 pb-16 md:pb-0">
       <SystemNavbar />
       <main className="flex-1">{children}</main>
     </div>
@@ -396,13 +400,14 @@ function App() {
         <Route 
           path="/auditflow" 
           element={
-            <ProtectedRoute allowedRoles={['CHIEF', 'DIRECTOR', 'TEAM_MANAGER', 'ADMIN', 'CHIEF_AUDITOR', 'SENIOR_AUDITOR', 'AUDITOR', 'REPORT_CONSUMER', 'COLLABORATOR']} disableLayout={true}>
+            <ProtectedRoute requireAuditAccess disableLayout={true}>
               <AuditProvider>
                 <Outlet />
               </AuditProvider>
             </ProtectedRoute>
           } 
         >
+          <Route index element={<Navigate to="dashboard" replace />} />
           {/* Admin console has its own layout */}
           <Route path="admin" element={<AdminConsoleView />} />
           

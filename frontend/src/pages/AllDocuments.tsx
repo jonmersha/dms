@@ -30,7 +30,7 @@ export function AllDocuments() {
         <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
           <FileText className="text-blue-600" /> Documents Directory
         </h1>
-        {(user?.system_roles?.some(r => ['DMS_ADMIN', 'DMS_UPLOADER', 'ADMIN'].includes(r))) && (
+        {(user?.system_roles?.some(r => ['DMS_ADMIN', 'DMS_UPLOADER', 'ADMIN', 'TEAM_MANAGER', 'MANAGER'].includes(r)) || ['TEAM_MANAGER', 'MANAGER'].includes(user?.role)) && (
           <Link
             to="/documents/new"
             className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"

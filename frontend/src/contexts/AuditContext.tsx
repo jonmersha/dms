@@ -5,6 +5,7 @@ import type {
   ComplianceControl, SystemLog, OrganizationalUnit, EscalationRecord 
 } from '../types/audit_flow';
 import { auditApiService } from '../services/auditApiService';
+import { useAuth } from './AuthContext';
 
 interface AuditContextType {
   currentUser: User | null;
@@ -44,6 +45,7 @@ export function useAuditContext() {
 }
 
 export function AuditProvider({ children }: { children: ReactNode }) {
+  const { user: globalUser } = useAuth();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [users, setUsers] = useState<User[]>([]);
@@ -87,6 +89,25 @@ export function AuditProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
+  // Mapping global user to local Audit User
+  useEffect(() => {
+    if (globalUser) {
+      // Find the first valid Audit role from system_roles
+      const validAuditRoles = ['Admin', 'Manager', 'Team Leader', 'Auditor', 'Auditee', 'Report Consumer'];
+      const auditRole = globalUser.system_roles?.find((r: string) => validAuditRoles.includes(r)) || 'Auditor';
+      
+      setCurrentUser({
+        id: globalUser.id.toString(),
+        name: globalUser.first_name + ' ' + globalUser.last_name,
+        email: globalUser.email,
+        role: auditRole,
+        department: globalUser.department_name || 'System',
+        status: 'Active',
+        avatar: globalUser.avatar_url || ''
+      });
+    }
+  }, [globalUser]);
+
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('audit_auth_user', JSON.stringify(currentUser));
@@ -97,50 +118,27 @@ export function AuditProvider({ children }: { children: ReactNode }) {
   }, [currentUser]);
 
   useEffect(() => {
-    if (!dataLoaded) return;
-    try {
-      auditApiService.saveUsers(users);
-    } catch(e) { console.error(e) }
+    // Autosave users removed due to DRF array POST incompatibility (400 Bad Request)
   }, [users, dataLoaded]);
 
   useEffect(() => {
-    if (dataLoaded) {
-      try {
-        auditApiService.saveUniverse(universe);
-      } catch(e) { console.error(e) }
-    }
+    // Autosave universe removed due to DRF array POST incompatibility (400 Bad Request)
   }, [universe, dataLoaded]);
 
   useEffect(() => {
-    if (dataLoaded) {
-      try {
-        auditApiService.saveAnnualPlan(annualPlan);
-      } catch(e) { console.error(e) }
-    }
+    // Autosave annualPlan removed due to DRF array POST incompatibility (400 Bad Request)
   }, [annualPlan, dataLoaded]);
 
   useEffect(() => {
-    if (dataLoaded) {
-      try {
-        auditApiService.saveEngagements(engagements);
-      } catch(e) { console.error(e) }
-    }
+    // Autosave engagements removed due to DRF array POST incompatibility (400 Bad Request)
   }, [engagements, dataLoaded]);
 
   useEffect(() => {
-    if (dataLoaded) {
-      try {
-        auditApiService.saveFindings(findings);
-      } catch(e) { console.error(e) }
-    }
+    // Autosave findings removed due to DRF array POST incompatibility (400 Bad Request)
   }, [findings, dataLoaded]);
 
   useEffect(() => {
-    if (dataLoaded) {
-      try {
-        auditApiService.saveComplianceControls(complianceControls);
-      } catch(e) { console.error(e) }
-    }
+    // Autosave complianceControls removed due to DRF array POST incompatibility (400 Bad Request)
   }, [complianceControls, dataLoaded]);
 
   useEffect(() => {

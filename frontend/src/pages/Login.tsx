@@ -92,8 +92,8 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
-        <h2 className="mb-6 text-3xl font-bold text-center text-gray-900">
-          {isLoginMode ? 'CAP Login' : 'Create Account'}
+        <h2 className="mb-6 text-2xl sm:text-3xl font-bold text-center text-gray-900">
+          {isLoginMode ? 'Comprehensive Audit Platform Login' : 'Create Account'}
         </h2>
         
         {successMsg && (
@@ -111,7 +111,7 @@ export function Login() {
 
         <form onSubmit={isLoginMode ? handleLoginSubmit : handleSignupSubmit} className="space-y-4">
           {!isLoginMode && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">First Name</label>
                 <input 
@@ -136,7 +136,7 @@ export function Login() {
           )}
 
           {!isLoginMode && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2">Department</label>
                 <select 

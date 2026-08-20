@@ -1,6 +1,0 @@
-{
-  "name": "Internal Audit & Compliance System",
-  "description": "Enterprise internal auditing activity management, risk-based annual planning, engagement execution, fieldwork finding tracker, CAAT analytics, and executive compliance dashboard.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

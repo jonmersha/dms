@@ -19,7 +19,7 @@ export const auditApiService = {
   // Users APIs
   async getUsers(): Promise<User[] | null> {
     try {
-      const response = await api.get('/users/');
+      const response = await api.get('/api/directory/users/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch (e) {
       console.warn('[API ERROR] Failed to fetch users', e);
@@ -30,7 +30,7 @@ export const auditApiService = {
   // Audit Universe APIs
   async getUniverse(): Promise<AuditUniverseEntity[] | null> {
     try {
-      const response = await api.get('/audits/universe/');
+      const response = await api.get('/api/audits/universe/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch (e) {
       console.warn('[API ERROR] Failed to fetch universe', e);
@@ -38,13 +38,13 @@ export const auditApiService = {
     }
   },
   async saveUniverse(universe: AuditUniverseEntity[]): Promise<any> {
-    return api.post('/audits/universe/', universe);
+    return api.post('/api/audits/universe/', universe);
   },
 
   // Annual Plan APIs
   async getAnnualPlan(): Promise<AnnualPlanItem[] | null> {
     try {
-      const response = await api.get('/audits/annual-plans/');
+      const response = await api.get('/api/audits/annual-plans/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch (e) {
       console.warn('[API ERROR] Failed to fetch annual plans', e);
@@ -52,13 +52,13 @@ export const auditApiService = {
     }
   },
   async saveAnnualPlan(plans: AnnualPlanItem[]): Promise<any> {
-    return api.post('/audits/annual-plans/', plans);
+    return api.post('/api/audits/annual-plans/', plans);
   },
 
   // Engagements APIs
   async getEngagements(): Promise<Engagement[] | null> {
     try {
-      const response = await api.get('/audits/engagements/');
+      const response = await api.get('/api/audits/engagements/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch (e) {
       console.warn('[API ERROR] Failed to fetch engagements', e);
@@ -66,13 +66,13 @@ export const auditApiService = {
     }
   },
   async saveEngagements(engs: Engagement[]): Promise<any> {
-    return api.post('/audits/engagements/', engs);
+    return api.post('/api/audits/engagements/', engs);
   },
 
   // Findings APIs
   async getFindings(): Promise<Finding[] | null> {
     try {
-      const response = await api.get('/audits/findings/');
+      const response = await api.get('/api/audits/findings/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch (e) {
       console.warn('[API ERROR] Failed to fetch findings', e);
@@ -80,13 +80,13 @@ export const auditApiService = {
     }
   },
   async saveFindings(findings: Finding[]): Promise<any> {
-    return api.post('/audits/findings/', findings);
+    return api.post('/api/audits/findings/', findings);
   },
 
   // Compliance Controls APIs
   async getComplianceControls(): Promise<ComplianceControl[] | null> {
     try {
-      const response = await api.get('/audits/compliance-controls/');
+      const response = await api.get('/api/audits/compliance-controls/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch (e) {
       console.warn('[API ERROR] Failed to fetch compliance controls', e);
@@ -94,13 +94,13 @@ export const auditApiService = {
     }
   },
   async saveComplianceControls(controls: ComplianceControl[]): Promise<any> {
-    return api.post('/audits/compliance-controls/', controls);
+    return api.post('/api/audits/compliance-controls/', controls);
   },
 
   // Escalations
   async getEscalations(): Promise<EscalationRecord[] | null> {
     try {
-      const response = await api.get('/audits/escalations/');
+      const response = await api.get('/api/audits/escalations/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch (e) {
       console.warn('[API ERROR] Failed to fetch escalations', e);
@@ -108,21 +108,15 @@ export const auditApiService = {
     }
   },
   async saveEscalations(escalations: EscalationRecord[]): Promise<any> {
-    return api.post('/audits/escalations/', escalations);
+    return api.post('/api/audits/escalations/', escalations);
   },
 
-  // System Logs APIs
+  // System Logs APIs (Mocked to local state for CAP since there is no backend table for this yet)
   async getSystemLogs(): Promise<SystemLog[] | null> {
-    try {
-      const response = await api.get('/users/audit-logs/');
-      return Array.isArray(response.data) ? response.data : (response.data?.results || []);
-    } catch (e) {
-      console.warn('[API ERROR] Failed to fetch system logs', e);
-      return null;
-    }
+    return [];
   },
   async appendSystemLog(log: SystemLog): Promise<any> {
-    return api.post('/users/audit-logs/', [log]);
+    return Promise.resolve();
   },
 
   // Auth mock for LoginView
@@ -133,14 +127,14 @@ export const auditApiService = {
   // Org Structure mock
   async getOrgUnits(): Promise<OrganizationalUnit[] | null> {
     try {
-      const response = await api.get('/audits/org-units/');
+      const response = await api.get('/api/audits/org-units/');
       return Array.isArray(response.data) ? response.data : (response.data?.results || []);
     } catch(e) { return null; }
   },
   async saveOrgUnits(units: OrganizationalUnit[]): Promise<any> {
-    return api.post('/audits/org-units/', units);
+    return api.post('/api/audits/org-units/', units);
   },
   async saveUsers(users: User[]): Promise<any> {
-    return api.post('/users/', users);
+    return api.post('/api/admin/users/', users);
   }
 };

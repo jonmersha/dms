@@ -83,7 +83,7 @@ export function AdminDashboard() {
 
 
       {/* Quick Action Cards */}
-      <div className="mb-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+      <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link to="/system/users" className="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center transition-transform hover:scale-105 cursor-pointer">
           <UserPlus size={28} className="mb-2 opacity-90" />
           <span className="font-semibold text-sm">Manage Users</span>
@@ -136,9 +136,9 @@ export function AdminDashboard() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="flex flex-col gap-6">
-          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
+        <div className="flex flex-col gap-6 min-w-0">
+          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1 min-w-0">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Users className="text-indigo-600" /> User Role Distribution
             </h2>
@@ -165,7 +165,7 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1">
+          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1 min-w-0">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Building2 className="text-emerald-600" /> Top Departments by Size
             </h2>
@@ -182,7 +182,7 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1">
+          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1 min-w-0">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Shield className="text-rose-600" /> Subsystem Access
             </h2>
@@ -204,7 +204,7 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200">
+        <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 min-w-0">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Activity className="text-blue-600" /> Recent User Activity
           </h2>

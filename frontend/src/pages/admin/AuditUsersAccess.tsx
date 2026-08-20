@@ -47,7 +47,7 @@ export function AuditUsersAccess() {
   const handleEdit = (user: any) => {
     setEditingUserId(user.id);
     setHasAuditAccess(user.has_audit_access || false);
-    setSelectedRoles(user.roles || []);
+    setSelectedRoles(user.groups || []);
     setIsModalOpen(true);
   };
 
@@ -69,7 +69,7 @@ export function AuditUsersAccess() {
     if (editingUserId) {
       updateMutation.mutate({
         has_audit_access: hasAuditAccess,
-        roles: selectedRoles
+        groups: selectedRoles
       });
     }
   };
@@ -143,9 +143,9 @@ export function AuditUsersAccess() {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {userRoles.length > 0 ? (
+                      {userRoles.filter((r: string) => ['Admin', 'Manager', 'Team Leader', 'Auditor', 'Auditee', 'Report Consumer'].includes(r)).length > 0 ? (
                         <div className="flex gap-1 flex-wrap">
-                          {userRoles.map((role: string) => (
+                          {userRoles.filter((r: string) => ['Admin', 'Manager', 'Team Leader', 'Auditor', 'Auditee', 'Report Consumer'].includes(r)).map((role: string) => (
                             <span key={role} className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                               {role.replace('Audit_', '')}
                             </span>
@@ -182,7 +182,14 @@ export function AuditUsersAccess() {
               <select
                 required
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2 text-sm"
-                onChange={(e) => setEditingUserId(Number(e.target.value))}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setEditingUserId(id);
+                  const selectedUser = users.find((u: any) => u.id === id);
+                  if (selectedUser) {
+                    setSelectedRoles(selectedUser.groups || []);
+                  }
+                }}
                 value={editingUserId || ''}
               >
                 <option value="" disabled>-- Select a user --</option>

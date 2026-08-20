@@ -83,6 +83,12 @@ class User(AbstractUser):
         if 'DMS Administrator' in group_names: roles.append('DMS_ADMIN')
         if 'DMS Uploader' in group_names: roles.append('DMS_UPLOADER')
         if 'DMS Viewer' in group_names: roles.append('DMS_VIEWER')
+        
+        # Audit Roles (used directly by Audit Flow UI)
+        for g in group_names:
+            if g.startswith('Audit_'):
+                roles.append(g.replace('Audit_', ''))
+                
         return roles
 
     @property

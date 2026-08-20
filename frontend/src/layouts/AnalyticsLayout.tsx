@@ -12,7 +12,7 @@ export function AnalyticsLayout() {
   ];
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50 overflow-hidden">
+    <div className="flex h-screen flex-col bg-gray-50 overflow-hidden pb-16 md:pb-0">
       <SystemNavbar />
       
       <div className="flex flex-1 overflow-hidden">
