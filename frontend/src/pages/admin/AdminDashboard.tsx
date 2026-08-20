@@ -44,6 +44,24 @@ export function AdminDashboard() {
     return Object.entries(depts).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 5); // top 5
   }, [users]);
 
+  const subsystemAccessData = React.useMemo(() => {
+    let dms = 0, audit = 0, irreg = 0, analytics = 0, lms = 0;
+    users.forEach((u: any) => {
+      if (u.has_dms_access) dms++;
+      if (u.has_audit_access) audit++;
+      if (u.has_irregularity_access) irreg++;
+      if (u.has_analytics_access) analytics++;
+      if (u.can_create_lms_course) lms++;
+    });
+    return [
+      { name: 'DMS', value: dms },
+      { name: 'Audits', value: audit },
+      { name: 'Irregularities', value: irreg },
+      { name: 'Analytics', value: analytics },
+      { name: 'LMS', value: lms },
+    ];
+  }, [users]);
+
   const activityTimeline = React.useMemo(() => {
     const dates: Record<string, number> = {};
     logs.forEach((log: any) => {
@@ -159,6 +177,27 @@ export function AdminDashboard() {
                   <YAxis allowDecimals={false} />
                   <Tooltip cursor={{fill: '#f1f5f9'}} />
                   <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} name="Users" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-white p-6 shadow-md border border-gray-200 flex-1">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Shield className="text-rose-600" /> Subsystem Access
+            </h2>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={subsystemAccessData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{fontSize: 12}} interval={0} height={40} />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip cursor={{fill: '#f1f5f9'}} />
+                  <Bar dataKey="value" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Users with Access" label={{ position: 'top', fill: '#4b5563', fontSize: 12, fontWeight: 600 }}>
+                    {subsystemAccessData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

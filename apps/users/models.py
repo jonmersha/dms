@@ -179,3 +179,9 @@ class DepartmentPerformancePlan(models.Model):
     def __str__(self):
         type_label = dict(self.PLAN_TYPES).get(self.plan_type, '')
         return f"{self.department.name} - {type_label} {self.year}"
+
+class SubsystemAccessAnalytics(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Subsystem Access Analytic'
+        verbose_name_plural = 'Subsystem Access Analytics'
