@@ -1,76 +1,105 @@
-# Document Management System (DMS)
+# Comprehensive Audit Platform (CAP)
 
-A comprehensive Django-based Document Management System designed for organizations to manage audit reports and documents with advanced access control and fiscal year tracking.
+The **Comprehensive Audit Platform (CAP)** (formerly known as the Document Management System) is an enterprise-grade Django and React-based system designed to manage the entire lifecycle of corporate auditing, irregularity tracking, document management, and employee training. 
 
-## 📋 Project Overview
+While it originated as a secure Document Management System (DMS), it has evolved into a robust modular monolith featuring multiple deeply integrated subsystems.
 
-This system provides a secure platform for uploading, organizing, and distributing audit documents with granular access controls. It's particularly suited for financial institutions, accounting firms, and organizations that need to manage documents across different fiscal periods and quarters.
+---
 
-### 🎯 Key Features
+## 🎯 Key Features & Modules
 
-- **🔐 Secure Document Management** - Upload, store, and manage PDF documents with access controls
-- **📅 Fiscal Year Organization** - Organize documents by fiscal years (e.g., 2024-25, 2025-26)
-- **📊 Quarterly Tracking** - Track documents across quarters (Q1: Jul-Sep, Q2: Oct-Dec, Q3: Jan-Mar, Q4: Apr-Jun)
-- **👥 Role-Based Access Control** - Restrict document access to specific users or groups
-- **📱 Modern Web Interface** - Responsive grid-based document browser
-- **🔍 Advanced Filtering** - Filter documents by fiscal year and quarter
-- **📥 Secure Downloads** - Controlled document download with permission checks
-- **⚡ REST API** - Complete API for integration with other systems
+The platform is divided into six core operational subsystems, all accessible via a unified modern React frontend and powered by a highly decoupled Django REST API backend.
 
-## 🏗️ System Architecture
+### 1. Audit Workflow Management (`audits`)
+Manages the end-to-end lifecycle of corporate audits, from strategic planning to fieldwork execution and final reporting.
+- **Strategic Planning**: Create Annual Audit Plans and target specific Auditable Entities (Branches, Departments, IT Systems).
+- **Engagement Execution**: Tracks budgeted vs. actual hours, Work Breakdown Structures (WBS), and Risk Control Matrices (RCM).
+- **Findings & Escalations**: Log specific findings (Condition, Criteria, Cause, Effect) with risk levels, track loss figures, and enforce SLAs. Supports dynamic escalation of overdue issues.
 
-### Core Components
+### 2. Branch Irregularities Management (`irregularities`)
+A continuous incident-driven system tailored for Branch Audits and day-to-day operational anomalies.
+- **Incident Tracking**: Log operational errors, fraud incidents, or cash shortages independently of annual audits.
+- **Resident Auditor Workflows**: Features an 11-step state machine ensuring strict segregation of duties between the Auditor reporting the issue, Management submitting evidence, and the Auditor validating the rectification.
+- **Immutable Audit Trails**: Every status change is cryptographically logged for non-repudiation.
 
-#### 1. **User Management** (`users` app)
-- Custom User model with email-based authentication
-- Integration with Djoser for REST API authentication
-- JWT token-based authentication
+### 3. Document Management System (`documents`)
+The foundational pillar providing secure, compliant storage of all platform artifacts.
+- **Fiscal Organization**: Documents are strictly tied to specific Fiscal Years (e.g., 2025-26) and Quarters.
+- **Advanced RBAC**: Features native departmental access logic, explicit user/group grants, and Temporary Access requests that automatically expire.
+- **Compliance Logging**: Every view, download, or metadata alteration is tracked in a permanent `DocumentAuditLog`.
 
-#### 2. **Audit Periods** (`audits` app)
-- Manage fiscal years (e.g., 2024-25, 2025-26)
-- Track active/inactive periods
-- Date validation and fiscal year formatting
+### 4. Continuous Analytics & Reporting (`analytics`)
+Serves as an automated continuous auditing engine capable of interfacing with remote databases.
+- **Remote Data Sources**: Connects natively to PostgreSQL, MySQL, SQL Server, and Oracle.
+- **Automated Execution**: Runs scheduled `AuditScript` SQL queries to hunt for control violations.
+- **Exception Triage**: Discovered anomalies are logged as `AnalyticsException` JSON payloads, which can be triaged and automatically escalated into formal `AuditFinding`s.
 
-#### 3. **Document Management** (`documents` app)
-- Document upload with metadata
-- Quarter-based organization (Q1-Q4)
-- Access control and restrictions
-- File storage with organized directory structure
+### 5. Learning Management System (`lms`)
+An integrated educational platform to deliver compliance training and auditor enablement.
+- **Curriculums & Playlists**: Organize courses mixing video, text, and interactive content.
+- **Assessment Engine**: Evaluate users using multiple-choice Quizzes with enforceable passing scores.
+- **Dynamic Certification**: Automatically overlays user details onto a customizable Certificate Template upon course completion.
 
-### 🗂️ Database Schema
+### 6. User & Access Management (`users`)
+Centralized identity management for the platform.
+- **Hierarchical Structuring**: Maps the physical organization via the `Department` and `OrganizationalUnit` models.
+- **Role-Based Access**: Distinguishes between `Admin`, `Chief`, `Manager`, `Auditor`, and `Auditee` roles.
 
+---
+
+## 🏗️ High-Level System Architecture
+
+The platform utilizes a **Modular Monolith** pattern. The backend is a single Django project containing highly decoupled apps, exposing data to a unified React/Vite SPA frontend.
+
+### Tech Stack
+* **Frontend**: React, Vite, Tailwind CSS, React Query, Axios.
+* **Backend**: Django 4.2+, Django REST Framework (DRF).
+* **Database**: PostgreSQL (Production) / SQLite (Development).
+* **Authentication**: Djoser with Simple JWT.
+* **Deployment**: Nginx (Reverse Proxy & Static/Media hosting) + Gunicorn (WSGI).
+
+### Data Flow Diagram
+
+```mermaid
+graph TD
+    Client([React SPA Frontend])
+    
+    subgraph Backend [Django REST Framework]
+        API[API Gateway]
+        
+        API --> AuditsApp[Audits]
+        API --> IrregApp[Irregularities]
+        API --> DMSApp[Documents]
+        API --> AnalyticsApp[Analytics]
+        API --> LMSApp[LMS]
+        API --> Auth[Users & Auth]
+    end
+    
+    subgraph Storage
+        DB[(PostgreSQL)]
+        Media[(File System)]
+    end
+    
+    Client <-->|HTTPS/REST| Backend
+    Backend <--> DB
+    DMSApp --> Media
+    LMSApp --> Media
 ```
-User
-├── email (unique)
-├── username
-└── Standard Django auth fields
 
-AuditPeriod
-├── fiscal_year (e.g., "2024-25")
-├── start_date
-├── end_date
-└── is_active
+*For more detailed architecture diagrams (including ER Diagrams, State Machines, and Class structures), please refer to the markdown files inside the `/docs/architecture/` directory.*
 
-Document
-├── title
-├── audit_period (FK to AuditPeriod)
-├── quarter (Q1, Q2, Q3, Q4)
-├── uploaded_by (FK to User)
-├── pdf_file
-├── restricted (boolean)
-└── allowed_users (M2M to User)
-```
+---
 
 ## 🚀 Installation & Setup
 
 ### Prerequisites
 - Python 3.8+
-- Django 4.2+
-- SQLite (default) or PostgreSQL
+- Node.js 18+ (for frontend)
+- PostgreSQL (Recommended)
 
-### Quick Start
+### Backend Setup
 
-1. **Clone and Setup**
+1. **Clone and Setup Virtual Environment**
 ```bash
 git clone <repository-url>
 cd dms
@@ -82,7 +111,7 @@ pip install -r requirements.txt
 2. **Configure Environment**
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with your specific database and secret key settings
 ```
 
 3. **Initialize Database**
@@ -92,174 +121,47 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-4. **Generate Sample Data**
-```bash
-python manage.py generate_audit_periods --start-year 2024 --end-year 2026
-```
-
-5. **Run Development Server**
+4. **Run Backend Server**
 ```bash
 python manage.py runserver
 ```
 
-## 🎮 How to Use
+### Frontend Setup
 
-### For Administrators
-
-1. **Access Admin Panel**
-   - Navigate to `/admin/`
-   - Login with superuser credentials
-
-2. **Manage Audit Periods**
-   - Create fiscal years (e.g., 2024-25)
-   - Set start/end dates
-   - Activate/deactivate periods
-
-3. **Upload Documents**
-   - Go to Documents section in admin
-   - Fill in: Title, Audit Period, Quarter, Upload PDF
-   - Set restrictions if needed
-   - Select allowed users for restricted documents
-
-4. **User Management**
-   - Create and manage user accounts
-   - Set permissions and access levels
-
-### For End Users
-
-1. **Browse Documents**
-   - Navigate to `/documents/`
-   - View documents in grid layout
-   - Use filters by fiscal year and quarter
-
-2. **Download Documents**
-   - Click download button on any accessible document
-   - Restricted documents require permission
-
-3. **API Access**
-   - Use `/auth/` endpoints for authentication
-   - Access documents via REST API
-
-## 🔧 API Endpoints
-
-### Authentication
-- `POST /auth/jwt/create/` - Get JWT tokens
-- `POST /auth/jwt/refresh/` - Refresh token
-- `GET /auth/users/me/` - Current user profile
-
-### Documents
-- `GET /documents/` - List accessible documents
-- `GET /documents/{id}/download/` - Download specific document
-
-## 📁 File Structure
-
-```
-dms/
-├── dms/                 # Project settings
-├── users/               # Custom user management
-├── audits/              # Audit period management
-├── documents/           # Document management
-│   ├── models.py       # Document model with quarters
-│   ├── views.py        # Document listing and download
-│   ├── admin.py        # Admin interface with download links
-│   └── templates/      # Grid-based document browser
-├── media/              # Uploaded documents storage
-│   └── reports/        # Organized by fiscal_year/quarter/
-└── static/             # Static files
+1. **Install Dependencies**
+```bash
+cd frontend
+npm install
 ```
 
-## 🔒 Security Features
-
-- **Authentication**: JWT-based secure authentication
-- **Authorization**: Role-based access control
-- **File Protection**: Permission-based document downloads
-- **Data Validation**: Comprehensive model validation
-- **SQL Injection Protection**: Django ORM security
-
-## 🎨 User Interface
-
-### Document Browser
-- **Grid Layout**: Card-based document display
-- **Advanced Filtering**: By fiscal year and quarter
-- **Visual Indicators**: Color-coded access levels
-- **Responsive Design**: Works on desktop and mobile
-
-### Admin Interface
-- **Jazzmin Theme**: Modern admin interface
-- **Quick Actions**: Direct document management
-- **Bulk Operations**: Mass document handling
-- **Download Links**: Direct file access from admin
-
-## ⚙️ Configuration
-
-### Key Settings
-
-```python
-# Custom User Model
-AUTH_USER_MODEL = 'users.User'
-
-# File Upload Settings
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# API Configuration
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
-}
+2. **Run Development Server**
+```bash
+npm run dev
 ```
 
-### Fiscal Year Configuration
-- **Format**: YYYY-YY (e.g., 2024-25)
-- **Start Month**: July (configurable)
-- **Quarters**: 
-  - Q1: July 1 - September 30
-  - Q2: October 1 - December 31
-  - Q3: January 1 - March 31
-  - Q4: April 1 - June 30
+---
 
-## 🚀 Deployment
+## 🔒 Security & Compliance Features
 
-### Production Checklist
-- [ ] Set `DEBUG = False`
-- [ ] Configure production database (PostgreSQL)
-- [ ] Set up static files serving
-- [ ] Configure media files storage (AWS S3 recommended)
-- [ ] Set up proper SSL certificates
-- [ ] Configure email backend
-- [ ] Set up monitoring and logging
+- **Authentication**: JWT-based secure authentication.
+- **State Machines**: Strict, hardcoded state transitions ensuring that (for example) Management cannot close an Audit Finding themselves—they can only upload evidence and await Auditor verification.
+- **Orphaned File Cleanup**: Django Signals automatically purge physical files from the storage drive when the database record is deleted.
+- **Temporary Access**: Access requests to secure documents natively expire without requiring manual revocation.
 
-### Docker Deployment
-```dockerfile
-# Sample Dockerfile available in repository
-```
+---
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Support
-
-For support and questions:
-- Check documentation in `/docs/`
-- Create issue in GitHub repository
-- Contact system administrator
-
-## 🔄 Version History
-
-- **v1.0.0** - Initial release with core document management
-- **v1.1.0** - Added REST API and improved UI
-- **v1.2.0** - Enhanced security and access controls
-
 ---
 
-**Built with Django 🐍 & Bootstrap 💙**
+**Built with Django 🐍 & React ⚛️**
