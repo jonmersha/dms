@@ -31,75 +31,52 @@ export function SystemNavbar() {
             
             {user && (
               <div className="hidden md:flex space-x-4 items-center">
-                {/* Dashboard */}
+                {/* Dashboard / System Admin */}
                 {user.role !== 'VISITOR' && (
-                  <Link to="/dashboard" title="Dashboard" className="flex items-center justify-center rounded-md p-2 hover:bg-blue-600 transition-colors">
-                    <Activity size={20} />
+                  <Link to={isSuperAdmin(user) ? "/system/dashboard" : "/dashboard"} title={isSuperAdmin(user) ? "System Administration" : "Dashboard"} className="flex items-center justify-center rounded-md p-2 hover:bg-blue-600 transition-colors">
+                    {isSuperAdmin(user) ? <Settings size={20} /> : <Activity size={20} />}
                   </Link>
                 )}
 
-                {/* 1. Public Web */}
-                {!isSuperAdmin(user) && (
-                  <Link to="/" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                  <Home size={18} /> Public Web
-                  </Link>
-                )}
+
                 
 
                 
-                {/* 2. CAP */}
-                {user.role !== 'VISITOR' && !isSuperAdmin(user) && (
-                  <Link to="/documents" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                    <FileText size={18} /> CAP
+                {(isSuperAdmin(user) || user.has_dms_access) && (
+                  <Link to={isSuperAdmin(user) ? "/system/dms" : "/documents"} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                    <FileText size={18} /> Document
                   </Link>
                 )}
 
                 
                 {/* Branch Irregularities */}
-                {user.role !== 'VISITOR' && !isSuperAdmin(user) && (
-                  <Link to="/incident-log" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                    <AlertCircle size={18} /> Incident Log
+                {(isSuperAdmin(user) || user.has_irregularity_access) && (
+                  <Link to={isSuperAdmin(user) ? "/system/branch-audit-admin" : "/branch-audit"} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                    <AlertCircle size={18} /> Branch Audit
                   </Link>
                 )}
 
                 {/* 3. Audit Workflow */}
-                {['CHIEF', 'DIRECTOR', 'TEAM_MANAGER'].includes(user.role) && (
-                  <Link to="/auditflow/universe" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                {(isSuperAdmin(user) || user.has_audit_access) && (
+                  <Link to={isSuperAdmin(user) ? "/system/audit" : "/auditflow/universe"} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
                     <Shield size={18} /> Audit
                   </Link>
                 )}
 
                 {/* 4. Analytics */}
-                {['CHIEF', 'DIRECTOR', 'TEAM_MANAGER'].includes(user.role) && (
-                  <Link to="/analytics/overview" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                {(isSuperAdmin(user) || user.has_analytics_access) && (
+                  <Link to={isSuperAdmin(user) ? "/system/analytics-admin" : "/analytics/overview"} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
                     <PieChart size={18} /> Analytics
                   </Link>
                 )}
 
-                {/* 5. LMS */}
-                {user.role !== 'VISITOR' && !isSuperAdmin(user) && (
-                  <Link to="/system/learning" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
+                {(isSuperAdmin(user) || user.can_create_lms_course || (user.system_roles ? user.system_roles.some(r => ['CHIEF', 'DIRECTOR', 'TEAM_MANAGER', 'ADMIN'].includes(r)) : ['CHIEF', 'DIRECTOR', 'TEAM_MANAGER', 'ADMIN'].includes(user.role))) && (
+                  <Link to={isSuperAdmin(user) ? "/system/lms-admin" : "/system/learning"} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
                     <ListVideo size={18} /> LMS
                   </Link>
                 )}
 
-                {/* System Administration Dropdown */}
-                {isSuperAdmin(user) && (
-                  <div className="relative group flex items-center ml-4">
-                    <button className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-blue-600 transition-colors">
-                      <Settings size={18} /> Administration <ChevronDown size={14} />
-                    </button>
-                    <div className="absolute left-0 top-full mt-1 w-48 rounded-md bg-white text-gray-800 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 py-1 border border-gray-100">
-                      <Link to="/system/dashboard" className="block px-4 py-2 hover:bg-gray-100 text-sm">Dashboard</Link>
-                      <Link to="/system/departments" className="block px-4 py-2 hover:bg-gray-100 text-sm">Departments</Link>
-                      <Link to="/system/users" className="block px-4 py-2 hover:bg-gray-100 text-sm">Users</Link>
-                      <Link to="/system/periods" className="block px-4 py-2 hover:bg-gray-100 text-sm">Periods</Link>
-                      <Link to="/system/logs" className="block px-4 py-2 hover:bg-gray-100 text-sm">Audit Logs</Link>
-                      <Link to="/system/content" className="block px-4 py-2 hover:bg-gray-100 text-sm">Content</Link>
-                      <Link to="/system/backups" className="block px-4 py-2 hover:bg-gray-100 text-sm">Backups</Link>
-                    </div>
-                  </div>
-                )}
+
               </div>
             )}
           </div>
@@ -108,6 +85,13 @@ export function SystemNavbar() {
             {user ? (
               <>
                 <div className="flex items-center gap-2">
+                  <Link 
+                    to="/"
+                    className="flex items-center gap-2 rounded-md bg-blue-800 px-4 py-2 text-sm font-medium hover:bg-blue-900 transition-colors mr-2 border border-blue-600"
+                  >
+                    <Home size={16} /> Public Web
+                  </Link>
+
                   {(!isSuperAdmin(user) && user.role !== 'AUDITEE' && user.role !== 'VISITOR') && (
                     <Link 
                       to="/recycle-bin"

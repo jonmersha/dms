@@ -18,6 +18,11 @@ interface User {
   is_staff: boolean;
   is_superuser: boolean;
   is_active: boolean;
+  has_irregularity_access: boolean;
+  has_dms_access: boolean;
+  has_audit_access: boolean;
+  has_analytics_access: boolean;
+  can_create_lms_course: boolean;
 }
 
 interface Department {
@@ -32,8 +37,14 @@ export function AdminUsers() {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [role, setRole] = useState<number | ''>('');
+  const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
   const [department, setDepartment] = useState<number | ''>('');
+  
+  const [hasIrregularityAccess, setHasIrregularityAccess] = useState(false);
+  const [hasDmsAccess, setHasDmsAccess] = useState(false);
+  const [hasAuditAccess, setHasAuditAccess] = useState(false);
+  const [hasAnalyticsAccess, setHasAnalyticsAccess] = useState(false);
+  const [canCreateLmsCourse, setCanCreateLmsCourse] = useState(false);
   
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,8 +79,13 @@ export function AdminUsers() {
     setPassword('');
     setFirstName('');
     setLastName('');
-    setRole('');
+    setSelectedRoles([]);
     setDepartment('');
+    setHasIrregularityAccess(false);
+    setHasDmsAccess(false);
+    setHasAuditAccess(false);
+    setHasAnalyticsAccess(false);
+    setCanCreateLmsCourse(false);
   };
 
   const createMutation = useMutation({
@@ -110,8 +126,13 @@ export function AdminUsers() {
     setEmail(user.email);
     setFirstName(user.first_name || '');
     setLastName(user.last_name || '');
-    setRole(user.groups && user.groups.length > 0 ? user.groups[0] : '');
+    setSelectedRoles(user.groups || []);
     setDepartment(user.department || '');
+    setHasIrregularityAccess(user.has_irregularity_access || false);
+    setHasDmsAccess(user.has_dms_access || false);
+    setHasAuditAccess(user.has_audit_access || false);
+    setHasAnalyticsAccess(user.has_analytics_access || false);
+    setCanCreateLmsCourse(user.can_create_lms_course || false);
     setPassword('');
     setIsModalOpen(true);
   };
@@ -123,8 +144,13 @@ export function AdminUsers() {
       email,
       first_name: firstName,
       last_name: lastName,
-      groups: role !== '' ? [Number(role)] : [],
+      groups: selectedRoles,
       department: department === '' ? null : department,
+      has_irregularity_access: hasIrregularityAccess,
+      has_dms_access: hasDmsAccess,
+      has_audit_access: hasAuditAccess,
+      has_analytics_access: hasAnalyticsAccess,
+      can_create_lms_course: canCreateLmsCourse,
     };
     if (password) {
       payload.password = password;
@@ -138,6 +164,18 @@ export function AdminUsers() {
   };
 
   if (isLoading) return <div className="p-8 text-center">Loading...</div>;
+
+  const roleGroups = {
+    'Audit Subsystem': roles.filter((r: any) => ['Chief', 'Director', 'Team Manager', 'Team Member', 'Auditor', 'Auditee', 'Report Consumer', 'Collaborator'].includes(r.name)),
+    'System Administration': roles.filter((r: any) => ['System Administrator', 'Admin'].includes(r.name)),
+    'Other': roles.filter((r: any) => !['Chief', 'Director', 'Team Manager', 'Team Member', 'Auditor', 'Auditee', 'Report Consumer', 'Collaborator', 'System Administrator', 'Admin'].includes(r.name))
+  };
+
+  const handleRoleToggle = (roleId: number) => {
+    setSelectedRoles(prev => 
+      prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]
+    );
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -271,29 +309,19 @@ export function AdminUsers() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Password</label>
-              <input
-                type="password"
-                required={!editingUserId}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
-                value={role}
-                onChange={(e) => setRole(e.target.value === '' ? '' : Number(e.target.value))}
-              >
-                <option value="">Select Role</option>
-                {roles.map((r: any) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
-            </div>
+            {!editingUserId && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Password</label>
+                <input
+                  type="password"
+                  required={!editingUserId}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700">Department</label>
               <select
@@ -307,6 +335,9 @@ export function AdminUsers() {
                 ))}
               </select>
             </div>
+            
+
+
             <div className="flex gap-4">
               <button
                 type="submit"

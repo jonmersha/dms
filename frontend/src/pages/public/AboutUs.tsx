@@ -1,6 +1,40 @@
 import React from 'react';
-import { Target, Compass, Award, Users, GitMerge, LayoutDashboard, FileText, ExternalLink } from 'lucide-react';
+import { Target, Compass, Award, Users, LayoutDashboard, FileText } from 'lucide-react';
 import { usePublicContent } from '../../hooks/usePublicContent';
+import { PublicOrgChart, type OrgNode } from './components/PublicOrgChart';
+
+const defaultOrgChart: OrgNode = {
+  id: 'root',
+  title: 'Chief Audit Executive (CAE)',
+  subtitle: 'Reports to Board of Directors & CEO',
+  children: [
+    {
+      id: 'd1',
+      title: 'Director, Corporate Audit',
+      children: [
+        { id: 'd1c1', title: 'Head Office Audit Team', children: [] },
+        { id: 'd1c2', title: 'IFB Audit Team', children: [] }
+      ]
+    },
+    {
+      id: 'd2',
+      title: 'Director, Investigations & Branch Audit',
+      children: [
+        { id: 'd2c1', title: 'Branch Audit', children: [] },
+        { id: 'd2c2', title: 'Investigation', children: [] },
+        { id: 'd2c3', title: 'Transaction', children: [] }
+      ]
+    },
+    {
+      id: 'd3',
+      title: 'Director, IT Audit',
+      children: [
+        { id: 'd3c1', title: 'Infrastructure & Apps', children: [] },
+        { id: 'd3c2', title: 'Digital Audit Team', children: [] }
+      ]
+    }
+  ]
+};
 
 export function AboutUs() {
   const { content, isLoading } = usePublicContent('about_us');
@@ -11,6 +45,15 @@ export function AboutUs() {
   const missionText = content.mission || "To enhance and protect organizational value by providing risk-based and objective assurance, advice, and insight. We help the organization accomplish its objectives by bringing a systematic, disciplined approach to evaluate and improve effectiveness.";
   const visionText = content.vision || "To be a trusted advisor and strategic partner to the Board and Management, recognized for driving positive change, fostering a culture of compliance, and supporting sustainable growth across all business units.";
   const valuesText = content.values || "Integrity, Objectivity, Confidentiality, and Competency. We adhere strictly to the Institute of Internal Auditors (IIA) Code of Ethics and International Standards for the Professional Practice of Internal Auditing.";
+
+  let orgChartData: OrgNode;
+  try {
+    orgChartData = content.org_chart_json 
+      ? JSON.parse(content.org_chart_json) 
+      : defaultOrgChart;
+  } catch (e) {
+    orgChartData = defaultOrgChart;
+  }
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white font-sans">
@@ -137,142 +180,8 @@ export function AboutUs() {
           </p>
         </div>
         
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 overflow-x-auto">
-          <div className="min-w-[1100px] flex flex-col items-center">
-            
-            {/* Board */}
-            <div className="flex justify-center w-full mb-8">
-              <div className="bg-slate-800 text-white font-bold py-3 px-8 rounded-lg shadow-md border-b-4 border-slate-900">
-                Board of Directors / Audit Committee
-              </div>
-            </div>
-            
-            <div className="h-10 border-l-2 border-gray-300 border-dashed"></div>
-            <div className="text-xs text-gray-500 bg-white px-2 -mt-6 mb-2">Functional Reporting</div>
-            
-            {/* CAE */}
-            <div className="flex justify-center w-full mb-8 relative">
-              <div className="absolute left-1/4 top-1/2 w-1/4 border-t-2 border-gray-300 border-dashed"></div>
-              <div className="absolute left-1/4 top-1/2 -mt-4 bg-white px-2 text-xs text-gray-500">Administrative Reporting</div>
-              <div className="absolute left-1/4 top-1/2 -ml-2 -mt-6 bg-slate-600 text-white text-xs font-bold py-2 px-4 rounded">CEO</div>
-              
-              <div className="bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md z-10 border-b-4 border-blue-900">
-                Chief Audit Executive (CAE)
-              </div>
-            </div>
-            
-            <div className="h-8 border-l-2 border-gray-400"></div>
-            <div className="w-[900px] border-t-2 border-gray-400"></div>
-            
-            {/* Directors */}
-            <div className="flex justify-between w-[950px] mt-8 gap-6">
-              
-              {/* Director Corporate Audit */}
-              <div className="flex flex-col items-center flex-1">
-                <div className="h-8 border-l-2 border-gray-400 -mt-8 mb-0"></div>
-                <div className="bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow mb-4 text-sm text-center w-full min-h-[60px] flex items-center justify-center">Director, Corporate Audit</div>
-                <div className="h-4 border-l-2 border-gray-300"></div>
-                <div className="w-3/4 border-t-2 border-gray-300"></div>
-                
-                <div className="flex justify-between w-full mt-4 gap-2">
-                  <div className="flex flex-col items-center w-1/2">
-                    <div className="h-4 border-l-2 border-gray-300 -mt-4"></div>
-                    <div className="bg-indigo-50 text-indigo-900 text-xs py-2 px-2 rounded border border-indigo-200 mb-2 font-bold w-full text-center">Head Office Audit Team</div>
-                    <div className="w-full text-center space-y-1 mt-2">
-                       <div className="text-[11px] font-semibold bg-gray-50 p-1 border rounded text-gray-700">Senior Team Manager</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Principal Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Senior Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Auditor</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center w-1/2">
-                    <div className="h-4 border-l-2 border-gray-300 -mt-4"></div>
-                    <div className="bg-indigo-50 text-indigo-900 text-xs py-2 px-2 rounded border border-indigo-200 mb-2 font-bold w-full text-center">IFB Audit Team</div>
-                    <div className="w-full text-center space-y-1 mt-2">
-                       <div className="text-[11px] font-semibold bg-gray-50 p-1 border rounded text-gray-700">Senior Team Manager</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Principal Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Senior Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Auditor</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Director Investigations and Branch Audit */}
-              <div className="flex flex-col items-center flex-[1.5]">
-                <div className="h-8 border-l-2 border-gray-400 -mt-8 mb-0"></div>
-                <div className="bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow mb-4 text-sm text-center w-full min-h-[60px] flex items-center justify-center">Director, Investigations & Branch Audit</div>
-                <div className="h-4 border-l-2 border-gray-300"></div>
-                <div className="w-4/5 border-t-2 border-gray-300"></div>
-                
-                <div className="flex justify-between w-full mt-4 gap-2">
-                  <div className="flex flex-col items-center w-1/3">
-                    <div className="h-4 border-l-2 border-gray-300 -mt-4"></div>
-                    <div className="bg-indigo-50 text-indigo-900 text-[11px] py-2 px-1 rounded border border-indigo-200 mb-2 font-bold w-full text-center min-h-[40px] flex items-center justify-center">Branch Audit</div>
-                    <div className="w-full text-center space-y-1 mt-2">
-                       <div className="text-[11px] font-semibold bg-gray-50 p-1 border rounded text-gray-700">Senior Team Mgr</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Principal Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Senior Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Auditor</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center w-1/3">
-                    <div className="h-4 border-l-2 border-gray-300 -mt-4"></div>
-                    <div className="bg-indigo-50 text-indigo-900 text-[11px] py-2 px-1 rounded border border-indigo-200 mb-2 font-bold w-full text-center min-h-[40px] flex items-center justify-center">Investigation</div>
-                    <div className="w-full text-center space-y-1 mt-2">
-                       <div className="text-[11px] font-semibold bg-gray-50 p-1 border rounded text-gray-700">Senior Team Mgr</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Principal Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Senior Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Auditor</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center w-1/3">
-                    <div className="h-4 border-l-2 border-gray-300 -mt-4"></div>
-                    <div className="bg-indigo-50 text-indigo-900 text-[11px] py-2 px-1 rounded border border-indigo-200 mb-2 font-bold w-full text-center min-h-[40px] flex items-center justify-center">Transaction</div>
-                    <div className="w-full text-center space-y-1 mt-2">
-                       <div className="text-[11px] font-semibold bg-gray-50 p-1 border rounded text-gray-700">Senior Team Mgr</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Principal Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Senior Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Auditor</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Director IT Audit */}
-              <div className="flex flex-col items-center flex-1">
-                <div className="h-8 border-l-2 border-gray-400 -mt-8 mb-0"></div>
-                <div className="bg-blue-600 text-white font-semibold py-2 px-4 rounded shadow mb-4 text-sm text-center w-full min-h-[60px] flex items-center justify-center">Director, IT Audit</div>
-                <div className="h-4 border-l-2 border-gray-300"></div>
-                <div className="w-3/4 border-t-2 border-gray-300"></div>
-                
-                <div className="flex justify-between w-full mt-4 gap-2">
-                  <div className="flex flex-col items-center w-1/2">
-                    <div className="h-4 border-l-2 border-gray-300 -mt-4"></div>
-                    <div className="bg-indigo-50 text-indigo-900 text-xs py-2 px-2 rounded border border-indigo-200 mb-2 font-bold w-full text-center">Infrastructure & Apps</div>
-                    <div className="w-full text-center space-y-1 mt-2">
-                       <div className="text-[11px] font-semibold bg-gray-50 p-1 border rounded text-gray-700">Senior IT Team Mgr</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Principal IT Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Senior IT Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">IT Auditor</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center w-1/2">
-                    <div className="h-4 border-l-2 border-gray-300 -mt-4"></div>
-                    <div className="bg-indigo-50 text-indigo-900 text-xs py-2 px-2 rounded border border-indigo-200 mb-2 font-bold w-full text-center">Digital Audit Team</div>
-                    <div className="w-full text-center space-y-1 mt-2">
-                       <div className="text-[11px] font-semibold bg-gray-50 p-1 border rounded text-gray-700">Senior IT Team Mgr</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Principal IT Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">Senior IT Auditor</div>
-                       <div className="text-[11px] bg-gray-50 p-1 border rounded text-gray-600">IT Auditor</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-            </div>
-            
-          </div>
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-2 sm:p-8 overflow-hidden">
+          <PublicOrgChart data={orgChartData} />
         </div>
       </div>
     </div>

@@ -19,6 +19,24 @@ class AuditPeriodSerializer(serializers.ModelSerializer):
         model = AuditPeriod
         fields = '__all__'
 
+    def validate(self, data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        
+        # Merge existing instance data if this is an update
+        if self.instance:
+            for key, value in data.items():
+                setattr(self.instance, key, value)
+            instance_to_validate = self.instance
+        else:
+            instance_to_validate = AuditPeriod(**data)
+            
+        try:
+            instance_to_validate.clean()
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.message_dict if hasattr(e, 'message_dict') else {'non_field_errors': e.messages})
+            
+        return data
+
 class ChecklistTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChecklistTemplate

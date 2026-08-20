@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import axios from '../../api/axios';
-import { ArchiveRestore, Download, Plus, Upload, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArchiveRestore, Download, Plus, Upload, Loader2, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 
 interface Backup {
   id: number;
@@ -122,6 +123,9 @@ export function BackupRestore() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between mb-8">
         <div>
+          <Link to="/system/dms" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-2">
+            <ArrowLeft size={16} /> Back to DMS Administration
+          </Link>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ArchiveRestore className="h-6 w-6 text-blue-600" />
             Backup & Restore

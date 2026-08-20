@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../../config';
 import { Document as PdfDocument, Page as PdfPage, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { usePublicContent } from '../../hooks/usePublicContent';
 
 // Initialize PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -193,16 +194,19 @@ function DocumentSideList({
 
 // ─── Main Publications Page ────────────────────────────────────────────────────
 export function Publications() {
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState(() => {
-    const hash = window.location.hash.replace('#', '');
-    return ['charter', 'guidelines', 'standards', 'guidance', 'associations'].includes(hash) ? hash : 'charter';
-  });
-
   const [documents, setDocuments] = useState<PublicDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [viewingDoc, setViewingDoc] = useState<PublicDocument | null>(null);
+
+  const { content } = usePublicContent('publications');
+  const heroTitle = content.hero_title || "Publications & Standards";
+  const heroSubtitle = content.hero_subtitle || "Access the foundational documents that govern our internal audit practices, methodologies, and ethical requirements.";
+
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = window.location.hash.replace('#', '');
+    return ['charter', 'guidelines', 'standards', 'guidance', 'associations'].includes(hash) ? hash : 'charter';
+  });
 
   const tabs = [
     { id: 'charter', label: 'Internal Audit Charter', icon: <Scale size={18} />, category: 'CHARTERS' },
@@ -211,13 +215,6 @@ export function Publications() {
     { id: 'guidance', label: 'ISACA / GTAG', icon: <Library size={18} />, category: 'FRAMEWORKS' },
     { id: 'associations', label: 'Associations', icon: <Network size={18} />, category: '' },
   ];
-
-  useEffect(() => {
-    const hash = location.hash.replace('#', '');
-    if (tabs.some(t => t.id === hash)) {
-      setActiveTab(hash);
-    }
-  }, [location]);
 
   useEffect(() => {
     let isActive = true;
@@ -253,17 +250,17 @@ export function Publications() {
   }, [activeTab]);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-white font-sans">
+    <div className="min-h-[calc(100vh-4rem)] bg-gray-50 font-sans">
       {viewingDoc && (
         <PdfViewerModal doc={viewingDoc} onClose={() => setViewingDoc(null)} />
       )}
 
-      <div className="bg-slate-900 py-16 text-white">
+      <div className="bg-slate-900 py-16 text-white text-center">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-extrabold sm:text-5xl">Publications &amp; Standards</h1>
-            <p className="mt-4 text-xl text-slate-300">
-              Access the foundational documents that govern our internal audit practices, methodologies, and ethical requirements.
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-4xl font-extrabold sm:text-5xl">{heroTitle}</h1>
+            <p className="mt-4 text-xl text-slate-300 whitespace-pre-line">
+              {heroSubtitle}
             </p>
           </div>
         </div>

@@ -10,10 +10,16 @@ interface User {
   first_name: string;
   last_name: string;
   role: string;
+  system_roles?: string[];
   role_display: string;
   is_staff: boolean;
   is_superuser: boolean;
   can_manage_public_content: boolean;
+  has_irregularity_access: boolean;
+  has_dms_access: boolean;
+  has_audit_access: boolean;
+  has_analytics_access: boolean;
+  can_create_lms_course: boolean;
 }
 
 interface AuthContextType {

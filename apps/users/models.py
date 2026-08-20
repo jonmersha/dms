@@ -54,21 +54,42 @@ class User(AbstractUser):
     )
     qualifications = models.JSONField(default=list, blank=True, null=True)
     expertise = models.JSONField(default=list, blank=True, null=True)
+    
+    # System Access Flags
+    has_irregularity_access = models.BooleanField(default=False)
+    has_dms_access = models.BooleanField(default=False)
+    has_audit_access = models.BooleanField(default=False)
+    has_analytics_access = models.BooleanField(default=False)
+    can_create_lms_course = models.BooleanField(default=False)
+
+    @property
+    def system_roles(self):
+        if not self.pk:
+            return []
+        group_names = [g.name for g in self.groups.all()]
+        roles = []
+        if 'Chief' in group_names: roles.append('CHIEF')
+        if 'Director' in group_names: roles.append('DIRECTOR')
+        if 'Team Manager' in group_names: roles.append('TEAM_MANAGER')
+        if 'Team Member' in group_names: roles.append('TEAM_MEMBER')
+        if 'System Administrator' in group_names: roles.append('ADMIN')
+        if 'Auditor' in group_names: roles.append('AUDITOR')
+        if 'Auditee' in group_names: roles.append('AUDITEE')
+        if 'Report Consumer' in group_names: roles.append('REPORT_CONSUMER')
+        if 'Collaborator' in group_names: roles.append('COLLABORATOR')
+        if 'Visitor' in group_names: roles.append('VISITOR')
+        
+        # DMS Roles
+        if 'DMS Administrator' in group_names: roles.append('DMS_ADMIN')
+        if 'DMS Uploader' in group_names: roles.append('DMS_UPLOADER')
+        if 'DMS Viewer' in group_names: roles.append('DMS_VIEWER')
+        return roles
 
     @property
     def role(self):
-        if not self.pk:
-            return None
-        group_names = [g.name for g in self.groups.all()]
-        if 'Chief' in group_names: return 'CHIEF'
-        if 'Director' in group_names: return 'DIRECTOR'
-        if 'Team Manager' in group_names: return 'TEAM_MANAGER'
-        if 'Team Member' in group_names: return 'TEAM_MEMBER'
-        if 'System Administrator' in group_names: return 'ADMIN'
-        if 'Auditor' in group_names: return 'AUDITOR'
-        if 'Auditee' in group_names: return 'AUDITEE'
-        if 'Visitor' in group_names: return 'VISITOR'
-        return None
+        # Kept for backward compatibility with components that expect a single primary role
+        roles = self.system_roles
+        return roles[0] if roles else None
 
     def clean(self):
         from django.core.exceptions import ValidationError

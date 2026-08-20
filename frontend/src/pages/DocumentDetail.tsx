@@ -42,7 +42,7 @@ export function DocumentDetail() {
       window.document.exitFullscreen();
     }
   };
-  const showPreview = user?.role !== 'AUDITEE' && user?.role !== 'VISITOR';
+  const showPreview = user?.system_roles?.some(r => !['AUDITEE', 'VISITOR'].includes(r)) ?? false;
   const [containerWidth, setContainerWidth] = useState(800);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -155,14 +155,6 @@ export function DocumentDetail() {
                     {document.status.replace('_', ' ')}
                   </span>
                   
-                  {(document.can_edit || document.can_manage) && (
-                    <button 
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100"
-                    >
-                      <Trash size={16} /> Delete
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -219,42 +211,12 @@ export function DocumentDetail() {
                   </button>
                 </div>
                 
-                <div className="mt-6 border-t pt-4">
-                  <h4 className="mb-2 text-sm font-semibold text-red-600">Request Deletion</h4>
-                  <textarea 
-                    className="mb-2 w-full rounded border border-red-300 p-2 text-sm" 
-                    placeholder="Reason for deletion..."
-                    value={deletionReason}
-                    onChange={(e) => setDeletionReason(e.target.value)}
-                  />
-                  <button 
-                    onClick={() => requestDeletionMutation.mutate()} 
-                    disabled={!deletionReason.trim()}
-                    className="rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50"
-                  >
-                    Request Deletion
-                  </button>
-                </div>
               </div>
             )}
 
-            {/* Deletion Review Actions */}
-            {document.status === 'DELETION_REQUESTED' && document.can_manage && (
-              <div className="rounded-lg bg-white p-6 shadow-sm border border-red-200">
-                <h3 className="mb-4 text-lg font-bold text-red-900">Deletion Requested</h3>
-                <p className="mb-4 text-sm text-gray-700"><strong>Reason:</strong> {document.deletion_reason}</p>
-                <div className="flex gap-4">
-                  <button onClick={() => reviewDeletionMutation.mutate('APPROVE')} className="flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700">
-                    <Check size={18} /> Approve Deletion
-                  </button>
-                  <button onClick={() => reviewDeletionMutation.mutate('REJECT')} className="flex items-center gap-2 rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">
-                    <X size={18} /> Reject Deletion
-                  </button>
-                </div>
-              </div>
-            )}
 
-          {user && user.role !== 'AUDITEE' && user.role !== 'VISITOR' && (
+
+          {user && user.system_roles?.some(r => !['AUDITEE', 'VISITOR'].includes(r)) && (
             <div className="rounded-lg bg-white p-6 shadow-sm border border-gray-200">
               <h3 className="mb-4 text-lg font-bold text-gray-900">Audit Trail</h3>
               <div className="max-h-96 overflow-y-auto space-y-4">

@@ -100,7 +100,7 @@ export function RecycleBin() {
                           <RefreshCw size={16} /> Restore
                         </button>
                         
-                        {(user?.role === 'CHIEF' || user?.role === 'TEAM_MANAGER' || doc.uploaded_by_details?.id === user?.id) && (
+                        {(user?.system_roles?.includes('DMS_ADMIN') || doc.uploaded_by_details?.id === user?.id) && (
                           <button
                             onClick={() => setDeleteConfirmId(doc.id)}
                             className="text-red-600 hover:text-red-900 flex items-center gap-1 ml-3"

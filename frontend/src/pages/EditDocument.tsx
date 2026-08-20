@@ -25,7 +25,7 @@ export function EditDocument() {
 
   const { data: auditPeriods = [] } = useQuery({
     queryKey: ['auditPeriods'],
-    queryFn: () => api.get('/api/admin/periods/').then(res => res.data),
+    queryFn: () => api.get('/api/audits/periods/').then(res => res.data),
   });
 
   const { data: departments = [] } = useQuery({

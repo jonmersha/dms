@@ -268,17 +268,14 @@ class Document(models.Model):
         return has_temp
         
     def can_manage(self, user):
-        """Check if user has Chief or Director-level oversight of this document"""
+        """Check if user has DMS Admin oversight of this document"""
         if not user.is_authenticated:
             return False
             
-        if user.is_superuser or getattr(user, 'role', None) == 'CHIEF':
-            return True
+        system_roles = getattr(user, 'system_roles', [])
             
-        if getattr(user, 'role', None) == 'DIRECTOR' and self.department_id and getattr(user, 'department', None):
-            user_depts = [d.id for d in user.department.get_all_sub_departments()]
-            if self.department_id in user_depts:
-                return True
+        if user.is_superuser or 'DMS_ADMIN' in system_roles:
+            return True
                 
         return False
         
@@ -286,10 +283,10 @@ class Document(models.Model):
         """Check if user can request/grant temporary access"""
         if self.can_manage(user):
             return True
-        if getattr(user, 'role', None) == 'TEAM_MANAGER' and self.department_id and getattr(user, 'department', None):
-            user_depts = [d.id for d in user.department.get_all_sub_departments()]
-            if self.department_id in user_depts:
-                return True
+            
+        system_roles = getattr(user, 'system_roles', [])
+        if 'DMS_VIEWER' in system_roles:
+            return True
         return False
     
     def can_edit(self, user):
@@ -300,18 +297,19 @@ class Document(models.Model):
             return True
         if user == self.uploaded_by:
             return True
-        # Team Manager can edit their team's documents
-        if getattr(user, 'role', None) == 'TEAM_MANAGER' and self.department_id and getattr(user, 'department', None):
-            if self.department_id == user.department.id:
-                return True
+            
+        system_roles = getattr(user, 'system_roles', [])
+        if 'DMS_ADMIN' in system_roles or 'DMS_UPLOADER' in system_roles:
+            return True
         return False
     
     def can_delete(self, user):
         """Check if user can hard-delete this document"""
+        system_roles = getattr(user, 'system_roles', [])
         return user.is_authenticated and (
             user == self.uploaded_by or 
             user.is_superuser or
-            getattr(user, 'role', None) == 'CHIEF'
+            'DMS_ADMIN' in system_roles
         )
         
     def can_request_deletion(self, user):

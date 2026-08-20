@@ -53,6 +53,7 @@ export default function IrregularityRegistryView() {
   });
 
   const isAuditor = ['ADMIN', 'CHIEF', 'DIRECTOR', 'TEAM_MANAGER'].includes(user?.role || '');
+  const isAdmin = user?.is_superuser || user?.role === 'ADMIN';
 
   useEffect(() => {
     fetchData();
@@ -74,7 +75,7 @@ export default function IrregularityRegistryView() {
       setReports(fetchedReports || []);
       
       if (universe) {
-        setBranches(universe.filter(e => e.entityType === 'BRANCH' || e.entity_type === 'BRANCH' || (e.name && e.name.toLowerCase().includes('branch'))));
+        setBranches(universe.filter(e => (e as any).entityType === 'BRANCH' || (e as any).entity_type === 'BRANCH' || (e.name && e.name.toLowerCase().includes('branch'))));
       }
     } catch (e) {
       console.error(e);
@@ -137,25 +138,18 @@ export default function IrregularityRegistryView() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <AlertCircle className="text-rose-600" />
-            Branch Irregularity Registry
+            {isAdmin ? "Branch Audit Registry Administration" : "Branch Audit Registry"}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             {isAuditor 
               ? "Monitor and gauge high-irregularity branches for audit targeting."
-              : "Log and report operational incidents and irregularities at the branch level."}
+              : "Log and report operational issues and branch audit findings."}
           </p>
         </div>
         
         <div className="flex items-center gap-3">
           
-          {isAuditor && (
-            <button 
-              onClick={() => navigate('/incident-log/admin')}
-              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
-            >
-              <Settings size={18} /> Settings
-            </button>
-          )}
+
           <button onClick={fetchData} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
             <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
           </button>
@@ -213,7 +207,7 @@ export default function IrregularityRegistryView() {
       {/* Creation Form */}
       {showAddForm && (
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-md mb-6 animate-fade-in">
-          <h3 className="text-lg font-bold text-gray-900 border-b pb-3 mb-5">Register New Incident / Irregularity</h3>
+          <h3 className="text-lg font-bold text-gray-900 border-b pb-3 mb-5">Register New Branch Audit Finding</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -372,7 +366,7 @@ export default function IrregularityRegistryView() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 font-semibold text-gray-600">Branch / Location</th>
-                <th className="px-6 py-3 font-semibold text-gray-600">Incident Details</th>
+                <th className="px-6 py-3 font-semibold text-gray-600">Audit Finding Details</th>
                 <th className="px-6 py-3 font-semibold text-gray-600">Reported By</th>
                 <th className="px-6 py-3 font-semibold text-gray-600">Financial Impact</th>
                 <th className="px-6 py-3 font-semibold text-gray-600">Status</th>
@@ -419,8 +413,8 @@ export default function IrregularityRegistryView() {
                       ) : (
                         <span className="text-gray-400 text-xs italic">No direct impact</span>
                       )}
-                      {report.involvedSystem && (
-                        <p className="text-[11px] text-gray-500 mt-1 font-medium">{report.involvedSystem}</p>
+                      {report.involvedSystemName && (
+                        <p className="text-[11px] text-gray-500 mt-1 font-medium">{report.involvedSystemName}</p>
                       )}
                     </td>
                     <td className="px-6 py-4">

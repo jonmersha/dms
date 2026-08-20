@@ -101,12 +101,13 @@ class UserSerializer(BaseUserSerializer):
     class Meta(BaseUserSerializer.Meta):
         fields = [
             'id', 'username', 'email', 'first_name', 'middle_name', 'last_name', 
-            'phone', 'employee_id', 'job_title', 'full_name', 'role', 'role_display', 
+            'phone', 'employee_id', 'job_title', 'full_name', 'role', 'system_roles', 'role_display', 
             'organization', 'department', 'team', 'permissions', 'status', 
             'is_staff', 'is_superuser', 'can_manage_public_content',
-            'reports_to', 'qualifications', 'expertise'
+            'reports_to', 'qualifications', 'expertise',
+            'has_irregularity_access', 'has_dms_access', 'has_audit_access', 'has_analytics_access', 'can_create_lms_course'
         ]
-        read_only_fields = ['id', 'username', 'role', 'role_display', 'organization', 'department', 'team', 'permissions', 'status', 'is_staff', 'is_superuser', 'can_manage_public_content']
+        read_only_fields = ['id', 'username', 'role', 'system_roles', 'role_display', 'organization', 'department', 'team', 'permissions', 'status', 'is_staff', 'is_superuser', 'can_manage_public_content', 'has_irregularity_access', 'has_dms_access', 'has_audit_access', 'has_analytics_access', 'can_create_lms_course']
 
     def update(self, instance, validated_data):
         # Prevent any manual group/department injection
@@ -145,7 +146,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role_display', 'groups', 'full_name', 'is_staff', 'is_superuser', 'can_manage_public_content', 'is_active', 'department', 'password', 'job_title', 'employee_id', 'phone', 'profile_photo', 'middle_name']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role_display', 'system_roles', 'groups', 'full_name', 'is_staff', 'is_superuser', 'can_manage_public_content', 'is_active', 'department', 'password', 'job_title', 'employee_id', 'phone', 'profile_photo', 'middle_name', 'has_irregularity_access', 'has_dms_access', 'has_audit_access', 'has_analytics_access', 'can_create_lms_course']
         extra_kwargs = {'password': {'write_only': True, 'required': False}}
 
     def create(self, validated_data):
@@ -173,6 +174,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
         
+        request = self.context.get('request')
+        performed_by = request.user if request and request.user.is_authenticated else None
+
+        if password and performed_by and performed_by != instance:
+            raise serializers.ValidationError({"password": "You cannot update the password for other users."})
+        
         # Track previous state for auditing
         prev_is_active = instance.is_active
         prev_department_id = instance.department_id
@@ -183,8 +190,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             user.set_password(password)
             user.save()
             
-        request = self.context.get('request')
-        performed_by = request.user if request and request.user.is_authenticated else None
+        # performed_by already initialized above
 
         # Audit logging for activation/suspension
         if prev_is_active != user.is_active:

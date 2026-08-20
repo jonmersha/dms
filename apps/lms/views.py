@@ -31,6 +31,7 @@ class IsContentManager(permissions.BasePermission):
         return (
             request.user.is_superuser or 
             getattr(request.user, 'can_manage_public_content', False) or 
+            getattr(request.user, 'can_create_lms_course', False) or
             getattr(request.user, 'is_staff', False) or
             (hasattr(request.user, 'role') and request.user.role in allowed_roles)
         )

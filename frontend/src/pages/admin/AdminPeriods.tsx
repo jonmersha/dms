@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
-import { Calendar, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Trash2, Power } from 'lucide-react';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
 
 interface Period {
@@ -22,11 +22,11 @@ export function AdminPeriods() {
 
   const { data: periods = [], isLoading } = useQuery<Period[]>({
     queryKey: ['admin-periods'],
-    queryFn: () => api.get('/api/admin/periods/').then(res => Array.isArray(res.data) ? res.data : (res.data as any).results || []),
+    queryFn: () => api.get('/api/audits/periods/').then(res => Array.isArray(res.data) ? res.data : (res.data as any).results || []),
   });
 
   const createMutation = useMutation({
-    mutationFn: (newPeriod: any) => api.post('/api/admin/periods/', newPeriod),
+    mutationFn: (newPeriod: any) => api.post('/api/audits/periods/', newPeriod),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-periods'] });
       setFiscalYear('');
@@ -37,10 +37,17 @@ export function AdminPeriods() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/api/admin/periods/${id}/`),
+    mutationFn: (id: number) => api.delete(`/api/audits/periods/${id}/`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-periods'] });
       setDeleteConfirmId(null);
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (period: Period) => api.patch(`/api/audits/periods/${period.id}/`, { is_active: !period.is_active }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-periods'] });
     },
   });
 
@@ -91,8 +98,16 @@ export function AdminPeriods() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button 
+                        onClick={() => toggleMutation.mutate(period)}
+                        className={`mr-3 ${period.is_active ? 'text-green-600 hover:text-green-900' : 'text-gray-400 hover:text-gray-600'}`}
+                        title={period.is_active ? "Deactivate" : "Activate"}
+                      >
+                        <Power size={18} />
+                      </button>
+                      <button 
                         onClick={() => setDeleteConfirmId(period.id)}
                         className="text-red-600 hover:text-red-900"
+                        title="Delete"
                       >
                         <Trash2 size={18} />
                       </button>

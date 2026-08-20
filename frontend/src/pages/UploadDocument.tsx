@@ -38,7 +38,7 @@ export function UploadDocument() {
 
   const { data: auditPeriods = [] } = useQuery({
     queryKey: ['auditPeriods'],
-    queryFn: () => api.get('/api/admin/periods/').then(res => res.data),
+    queryFn: () => api.get('/api/audits/periods/').then(res => res.data),
   });
 
   const isReport = REPORT_CATEGORIES.includes(formData.category);

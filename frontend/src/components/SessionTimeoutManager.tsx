@@ -21,8 +21,8 @@ export function SessionTimeoutManager({
   const [countdown, setCountdown] = useState(warningMinutes * 60);
   
   const lastActivity = useRef<number>(Date.now());
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resetActivity = useCallback(() => {
     lastActivity.current = Date.now();
@@ -46,7 +46,7 @@ export function SessionTimeoutManager({
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
     
     // Throttle the event listeners to avoid performance issues
-    let throttleTimer: NodeJS.Timeout | null = null;
+    let throttleTimer: ReturnType<typeof setTimeout> | null = null;
     const handleActivity = () => {
       if (!throttleTimer) {
         throttleTimer = setTimeout(() => {

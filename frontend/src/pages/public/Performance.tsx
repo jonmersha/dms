@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { BarChart3, TrendingUp, Calendar as CalendarIcon, CheckCircle2, Loader2, Building2, Target, ListChecks, CalendarDays } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/axios';
+import { usePublicContent } from '../../hooks/usePublicContent';
 
 export function Performance() {
   const location = useLocation();
@@ -20,12 +21,16 @@ export function Performance() {
     queryFn: () => api.get('/api/admin/performance-plans/').then(res => res.data),
   });
 
+  const { content } = usePublicContent('performance');
+  const heroTitle = content.hero_title || "Performance & Plans";
+  const heroSubtitle = content.hero_subtitle || "Transparency in our operations through published performance metrics and our strategic yearly audit plans.";
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gray-50 font-sans">
       <div className="bg-slate-900 py-16 text-white text-center">
-        <h1 className="text-4xl font-extrabold sm:text-5xl">Performance & Plans</h1>
-        <p className="mt-4 text-xl text-slate-300 max-w-2xl mx-auto">
-          Transparency in our operations through published performance metrics and our strategic yearly audit plans.
+        <h1 className="text-4xl font-extrabold sm:text-5xl">{heroTitle}</h1>
+        <p className="mt-4 text-xl text-slate-300 max-w-2xl mx-auto whitespace-pre-line">
+          {heroSubtitle}
         </p>
       </div>
 

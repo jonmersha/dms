@@ -97,7 +97,7 @@ export function AccessManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {access.status === 'PENDING' && (user?.role === 'CHIEF' || user?.role === 'DIRECTOR') && (
+                      {access.status === 'PENDING' && (user?.system_roles?.includes('DMS_ADMIN')) && (
                         <div className="flex justify-end gap-2">
                           <button 
                             onClick={() => reviewAccessMutation.mutate({ documentId: access.document, accessId: access.id, action: 'APPROVE' })} 
@@ -113,7 +113,7 @@ export function AccessManagement() {
                           </button>
                         </div>
                       )}
-                      {access.status === 'ACTIVE' && (user?.role === 'CHIEF' || user?.role === 'DIRECTOR' || user?.id === access.granted_by_details?.id) && (
+                      {access.status === 'ACTIVE' && (user?.system_roles?.includes('DMS_ADMIN') || user?.id === access.granted_by_details?.id) && (
                         <button 
                           onClick={() => reviewAccessMutation.mutate({ documentId: access.document, accessId: access.id, action: 'REVOKE' })} 
                           className="text-red-600 hover:text-red-900 text-xs"

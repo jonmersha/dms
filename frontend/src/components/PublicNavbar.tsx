@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, Home, Shield, Settings, FileText, Trash2, Building2, Users, Activity, Calendar, User, Newspaper, ChevronDown } from 'lucide-react';
 
+function isSuperAdmin(user: any) {
+  return user?.is_superuser || user?.role === 'ADMIN';
+}
+
 export function PublicNavbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -49,6 +53,13 @@ export function PublicNavbar() {
           <div className="flex items-center gap-6">
             {user ? (
               <>
+                  <Link 
+                    to={isSuperAdmin(user) ? "/system/dashboard" : "/dashboard"}
+                    className="flex items-center gap-2 rounded-md bg-blue-800 px-4 py-2 text-sm font-medium hover:bg-blue-900 transition-colors mr-2 border border-blue-600"
+                  >
+                    {isSuperAdmin(user) ? <Settings size={16} /> : <Activity size={16} />} 
+                    {isSuperAdmin(user) ? "Admin Dashboard" : "Dashboard"}
+                  </Link>
                   <div className="relative group">
                     <button className="flex items-center gap-2 rounded-md p-2 hover:bg-blue-800 transition-colors">
                       <div className="bg-blue-600 p-1.5 rounded-full">
@@ -68,8 +79,9 @@ export function PublicNavbar() {
                       <Link to="/" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-sm w-full transition-colors">
                         <Home size={16} className="text-gray-500" /> Public Home
                       </Link>
-                      <Link to="/dashboard" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-sm w-full transition-colors">
-                        <Activity size={16} className="text-gray-500" /> Dashboard
+                      <Link to={isSuperAdmin(user) ? "/system/dashboard" : "/dashboard"} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-sm w-full transition-colors">
+                        {isSuperAdmin(user) ? <Settings size={16} className="text-gray-500" /> : <Activity size={16} className="text-gray-500" />} 
+                        {isSuperAdmin(user) ? "Admin Dashboard" : "Dashboard"}
                       </Link>
                       <Link to="/profile" className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 text-sm w-full transition-colors">
                         <User size={16} className="text-gray-500" /> My Profile

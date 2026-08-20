@@ -4,6 +4,7 @@ import { Save, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../config';
+import { OrgChartEditor, type OrgNode } from './components/OrgChartEditor';
 
 interface ContentBlock {
   page: string;
@@ -12,7 +13,7 @@ interface ContentBlock {
 }
 
 // Define the structure of pages and their editable sections
-const PAGE_STRUCTURE: Record<string, { label: string, sections: { key: string, label: string, type: 'text' | 'textarea' | 'html' }[] }> = {
+const PAGE_STRUCTURE: Record<string, { label: string, sections: { key: string, label: string, type: 'text' | 'textarea' | 'html' | 'org_chart' }[] }> = {
   'about_us': {
     label: 'About Us',
     sections: [
@@ -21,6 +22,7 @@ const PAGE_STRUCTURE: Record<string, { label: string, sections: { key: string, l
       { key: 'mission', label: 'Mission Text', type: 'textarea' },
       { key: 'vision', label: 'Vision Text', type: 'textarea' },
       { key: 'values', label: 'Core Values Text', type: 'textarea' },
+      { key: 'org_chart_json', label: 'Organizational Structure', type: 'org_chart' },
     ]
   },
   'landing_page': {
@@ -33,6 +35,30 @@ const PAGE_STRUCTURE: Record<string, { label: string, sections: { key: string, l
   },
   'learning': {
     label: 'Learning',
+    sections: [
+      { key: 'hero_title', label: 'Hero Title', type: 'text' },
+      { key: 'hero_subtitle', label: 'Hero Subtitle', type: 'textarea' },
+    ]
+  },
+  'publications': {
+    label: 'Publications',
+    sections: [
+      { key: 'hero_title', label: 'Hero Title', type: 'text' },
+      { key: 'hero_subtitle', label: 'Hero Subtitle', type: 'textarea' },
+    ]
+  },
+  'quality': {
+    label: 'Quality Management',
+    sections: [
+      { key: 'hero_title', label: 'Hero Title', type: 'text' },
+      { key: 'hero_subtitle', label: 'Hero Subtitle', type: 'textarea' },
+      { key: 'intro_title', label: 'Intro Title', type: 'text' },
+      { key: 'intro_text_1', label: 'Intro Text Paragraph 1', type: 'textarea' },
+      { key: 'intro_text_2', label: 'Intro Text Paragraph 2', type: 'textarea' },
+    ]
+  },
+  'performance': {
+    label: 'Performance & Plans',
     sections: [
       { key: 'hero_title', label: 'Hero Title', type: 'text' },
       { key: 'hero_subtitle', label: 'Hero Subtitle', type: 'textarea' },
@@ -162,7 +188,20 @@ export function AdminContent() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {section.label}
                       </label>
-                      {section.type === 'textarea' ? (
+                      {section.type === 'org_chart' ? (
+                        <div className="border border-gray-200 rounded p-4 bg-gray-50">
+                          <OrgChartEditor 
+                            data={(function() {
+                              try {
+                                return content ? JSON.parse(content) : { id: 'root', title: 'Chief Internal Auditor', subtitle: '', children: [] };
+                              } catch(e) {
+                                return { id: 'root', title: 'Chief Internal Auditor', subtitle: '', children: [] };
+                              }
+                            })()} 
+                            onChange={(newData) => handleContentChange(activeTab, section.key, JSON.stringify(newData))} 
+                          />
+                        </div>
+                      ) : section.type === 'textarea' ? (
                         <textarea
                           rows={4}
                           value={content}

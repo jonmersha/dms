@@ -47,11 +47,8 @@ export function DocumentAccess() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['document', id] });
       setTempAccess({ userId: '', expiryDate: '', canDownload: false, authorizerId: '' });
-      if (user?.role === 'TEAM_MANAGER') {
-        setAlertConfig({ isOpen: true, message: 'Access request submitted for Director approval', type: 'success' });
-      } else {
-        setAlertConfig({ isOpen: true, message: 'Temporary access granted successfully', type: 'success' });
-      }
+      setTempAccess({ userId: '', expiryDate: '', canDownload: false, authorizerId: '' });
+      setAlertConfig({ isOpen: true, message: 'Temporary access granted successfully', type: 'success' });
     },
     onError: (err: any) => {
       setAlertConfig({ isOpen: true, message: err.response?.data?.error || 'Failed to process request', type: 'error' });
@@ -82,13 +79,7 @@ export function DocumentAccess() {
     );
   }
 
-  // Filter users for Team Managers
   let availableUsers = usersData?.results || usersData || [];
-  let authorizerUsers = [];
-  if (user?.role === 'TEAM_MANAGER') {
-    availableUsers = availableUsers.filter((u: any) => u.role === 'AUDITEE' || u.role === 'VISITOR');
-    authorizerUsers = (usersData?.results || usersData || []).filter((u: any) => u.role === 'CHIEF' || u.role === 'DIRECTOR');
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -109,9 +100,6 @@ export function DocumentAccess() {
             <h3 className="mb-4 text-lg font-bold text-purple-900">
               Grant Temporary Access
             </h3>
-            {user?.role === 'TEAM_MANAGER' && (
-              <p className="text-sm text-gray-600 mb-4">Note: Team Managers can only grant access for Auditees and Visitors. Grants require Director/Chief authorization.</p>
-            )}
             
             <div className="grid gap-4">
               <div>
@@ -130,23 +118,7 @@ export function DocumentAccess() {
                 </select>
               </div>
 
-              {user?.role === 'TEAM_MANAGER' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Select Authorizer (Director/Chief)</label>
-                  <select 
-                    className="mt-1 block w-full rounded-md border border-gray-300 p-2"
-                    value={tempAccess.authorizerId}
-                    onChange={e => setTempAccess({...tempAccess, authorizerId: e.target.value})}
-                  >
-                    <option value="">-- Select an Authorizer --</option>
-                    {authorizerUsers.map((u: any) => (
-                      <option key={u.id} value={u.id}>
-                        {u.full_name || u.username} ({u.role_display || u.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+
               
               <div>
                 <label className="block text-sm font-medium text-gray-700">Expiration Date</label>
@@ -171,7 +143,7 @@ export function DocumentAccess() {
               
               <button 
                 onClick={() => grantAccessMutation.mutate()} 
-                disabled={!tempAccess.userId || !tempAccess.expiryDate || (user?.role === 'TEAM_MANAGER' && !tempAccess.authorizerId) || grantAccessMutation.isPending}
+                disabled={!tempAccess.userId || !tempAccess.expiryDate || grantAccessMutation.isPending}
                 className="mt-2 rounded bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:opacity-50"
               >
                 Grant Access

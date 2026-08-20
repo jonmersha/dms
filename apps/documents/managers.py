@@ -20,28 +20,20 @@ class DocumentQuerySet(models.QuerySet):
         if not include_deleted:
             # Users can still see their own deleted documents
             queryset = queryset.filter(Q(is_deleted=False) | Q(uploaded_by=user))
-        # 2. ADMIN or superuser cannot view any documents
-        if getattr(user, 'is_superuser', False) or 'System Administrator' in user_groups:
-            return self.none()
-
-        # CHIEF sees everything
-        if 'Chief' in user_groups:
+        # 2. DMS Administrator sees everything
+        if 'DMS Administrator' in user_groups or getattr(user, 'is_superuser', False):
             return self.all()
 
-            
         # 3. Base visibility starts with explicit permissions and ownership
         visibility_query = Q(uploaded_by=user) | Q(allowed_users=user) | Q(allowed_groups__in=user.groups.all())
         
-        # 4. Internal audit staff (not Auditees/Visitors) can see all unrestricted documents
-        if 'Auditor' not in user_groups:
+        # 4. DMS users can see unrestricted documents
+        if 'DMS Uploader' in user_groups or 'DMS Viewer' in user_groups:
             visibility_query |= Q(restricted=False)
         
         if getattr(user, 'department', None):
             user_depts = [d.id for d in user.department.get_all_sub_departments()]
             visibility_query |= Q(allowed_departments__in=user_depts)
-            
-            if ('Director' in user_groups or 'Team Manager' in user_groups):
-                visibility_query |= Q(department__in=user_depts)
                 
         # Also include documents where the user has active temporary access that grants view permission
         now = timezone.now()
